@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: router
+      POSTGRES_PASSWORD: router
+      POSTGRES_DB: router
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U router -d router"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3001
+      DATABASE_URL: postgres://router:router@postgres:5432/router
+      TEST_DATABASE_URL: postgres://router:router@postgres:5432/router_test
+      CREATE_DATABASE_BEFORE_MIGRATE: "false"
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-change-me}
+      CHANNEL_KEY_ENCRYPTION_SECRET: ${CHANNEL_KEY_ENCRYPTION_SECRET:-replace-with-at-least-32-characters-secret}
+      ALLOW_PRIVATE_UPSTREAM_BASE_URLS: ${ALLOW_PRIVATE_UPSTREAM_BASE_URLS:-true}
+      CHANNEL_TEST_TIMEOUT_MS: ${CHANNEL_TEST_TIMEOUT_MS:-5000}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "--input-type=module",
+          "-e",
+          "const response = await fetch('http://127.0.0.1:3001/health'); process.exit(response.ok ? 0 : 1)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "3001:3001"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      VITE_API_PROXY_TARGET: http://api:3001
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "--input-type=module",
+          "-e",
+          "const response = await fetch('http://127.0.0.1:3000/login'); process.exit(response.ok ? 0 : 1)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:

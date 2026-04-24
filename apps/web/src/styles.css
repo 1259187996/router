@@ -1,0 +1,88 @@
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-sans/700.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/ibm-plex-mono/600.css';
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'IBM Plex Sans', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SFMono-Regular', 'SF Mono', monospace;
+
+  --color-canvas: #f6efe4;
+  --color-canvas-strong: #eadfce;
+  --color-panel: rgba(255, 252, 246, 0.78);
+  --color-panel-strong: #fdf7ed;
+  --color-line-soft: rgba(18, 52, 46, 0.08);
+  --color-line-strong: rgba(18, 52, 46, 0.16);
+  --color-ink: #132a27;
+  --color-ink-soft: #4d5d58;
+  --color-brand: #12463d;
+  --color-brand-strong: #0b302a;
+  --color-accent: #2d7868;
+  --color-alert: #8d4d23;
+}
+
+:root {
+  color: var(--color-ink);
+  background:
+    radial-gradient(circle at top left, rgba(45, 120, 104, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(18, 70, 61, 0.12), transparent 22%),
+    linear-gradient(180deg, #fbf8f1 0%, #f4ede2 100%);
+  font-family: var(--font-sans);
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: inherit;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: rgba(18, 70, 61, 0.18);
+}
+
+.surface-panel {
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 251, 245, 0.72));
+  box-shadow:
+    0 30px 80px -48px rgba(13, 35, 31, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(18px);
+}
+
+.surface-card {
+  border: 1px solid rgba(18, 52, 46, 0.08);
+  background: rgba(255, 252, 246, 0.82);
+  box-shadow: 0 24px 60px -44px rgba(16, 39, 35, 0.34);
+}
+
+.grid-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.grid-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(18, 52, 46, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 52, 46, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 100%);
+  pointer-events: none;
+}

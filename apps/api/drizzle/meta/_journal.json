@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1776939512918,
+      "tag": "0000_opposite_scarlet_witch",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776941761512,
+      "tag": "0001_premium_kinsey_walden",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776960874692,
+      "tag": "0002_glossy_invisible_woman",
+      "breakpoints": true
+    }
+  ]
+}

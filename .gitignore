@@ -1,0 +1,10 @@
+.superpowers/
+.worktrees/
+node_modules/
+dist/
+.env
+.env.local
+coverage/
+.playwright-runtime/
+playwright-report/
+test-results/

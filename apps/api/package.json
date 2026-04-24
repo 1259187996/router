@@ -1,0 +1,32 @@
+{
+  "name": "@router/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "test": "tsx scripts/test.ts",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed-admin": "tsx scripts/seed-admin.ts",
+    "db:seed-e2e": "tsx scripts/seed-e2e.ts",
+    "mock-upstream": "tsx scripts/mock-upstream.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@router/shared": "workspace:*",
+    "argon2": "^0.44.0",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
+    "fastify": "^5.3.3",
+    "pg": "^8.20.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.19.4"
+  }
+}

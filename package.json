@@ -1,0 +1,21 @@
+{
+  "name": "router",
+  "private": true,
+  "packageManager": "pnpm@10.10.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm --parallel --filter @router/api --filter @router/web dev",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "e2e": "playwright test",
+    "db:generate": "pnpm --filter @router/api db:generate",
+    "db:migrate": "pnpm --filter @router/api db:migrate"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vitest": "^3.1.3"
+  }
+}

@@ -1,0 +1,12 @@
+.git
+.worktrees
+.superpowers
+node_modules
+dist
+coverage
+.playwright-runtime
+apps/.DS_Store
+apps/**/dist
+apps/**/test-results
+test-results
+playwright-report
