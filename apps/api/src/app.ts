@@ -20,6 +20,7 @@ import { registerGatewayAuthPlugin } from './plugins/gateway-auth.js';
 import { registerOpenAiRoutes } from './modules/gateway/openai-routes.js';
 
 type BuildAppOptions = Pick<FastifyServerOptions, 'logger'> & {
+  bodyLimit?: number;
   allowPrivateUpstreamBaseUrls?: boolean;
   channelKeyEncryptionSecret?: string;
   channelTestLookup?: (hostname: string) => Promise<UpstreamLookupResult[]>;
@@ -29,7 +30,10 @@ type BuildAppOptions = Pick<FastifyServerOptions, 'logger'> & {
 };
 
 export async function buildApp(options: BuildAppOptions = {}) {
-  const app = Fastify({ logger: options.logger ?? true });
+  const app = Fastify({
+    logger: options.logger ?? true,
+    bodyLimit: options.bodyLimit ?? 32 * 1024 * 1024
+  });
   const appDb = options.db ?? (await loadProductionDb());
 
   app.decorate('db', appDb);

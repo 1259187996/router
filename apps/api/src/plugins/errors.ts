@@ -35,6 +35,11 @@ export function registerErrorHandler(fastify: FastifyInstance) {
       return;
     }
 
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
+      reply.status(413).send({ error: 'Request body is too large' });
+      return;
+    }
+
     request.log.error({ err: error }, 'Unhandled request error');
     reply.status(500).send({ error: 'Internal Server Error' });
   });

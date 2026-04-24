@@ -26,7 +26,7 @@ function normalizeBasePath(basePath: string | undefined) {
   return `/${basePath.replace(/^\/+|\/+$/g, '')}`;
 }
 
-export function createMockUpstream(options?: { basePath?: string }) {
+export function createMockUpstream(options?: { basePath?: string; bodyLimit?: number }) {
   let app: FastifyInstance | null = null;
   let baseUrl = '';
   let nextRequestHook: (() => Promise<void> | void) | null = null;
@@ -87,7 +87,10 @@ export function createMockUpstream(options?: { basePath?: string }) {
         return;
       }
 
-      const server = Fastify({ logger: false });
+      const server = Fastify({
+        logger: false,
+        bodyLimit: options?.bodyLimit
+      });
 
       server.post(completionsPath, async (request, reply) => {
         const result = await handleRequest({
