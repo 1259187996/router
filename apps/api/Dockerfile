@@ -3,7 +3,7 @@ FROM node:20-alpine
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 
-RUN apk add --no-cache libc6-compat python3 make g++
+RUN sed -i 's|dl-cdn.alpinelinux.org|mirrors.aliyun.com|g' /etc/apk/repositories && apk add --no-cache libc6-compat python3 make g++
 RUN corepack enable
 
 WORKDIR /app
