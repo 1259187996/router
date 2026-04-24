@@ -17,4 +17,6 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
+RUN pnpm --filter @router/shared build
+
 CMD ["sh", "-lc", "pnpm --filter @router/web exec vite --host 0.0.0.0 --port 3000"]

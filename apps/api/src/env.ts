@@ -27,6 +27,10 @@ const envSchema = z.object({
     .default(isLocalRuntime ? 'true' : 'false')
     .transform((value) => value === 'true'),
   CHANNEL_TEST_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+  SESSION_COOKIE_SECURE: z
+    .enum(['true', 'false'])
+    .default(isLocalRuntime ? 'false' : 'true')
+    .transform((value) => value === 'true'),
   CHANNEL_KEY_ENCRYPTION_SECRET: isLocalRuntime
     ? z.string().min(32).default(defaultLocalEncryptionSecret)
     : z.string().min(32)

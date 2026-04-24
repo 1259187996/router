@@ -1,0 +1,15 @@
+services:
+  postgres:
+    ports: !reset []
+    restart: unless-stopped
+
+  api:
+    environment:
+      NODE_ENV: production
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+    restart: unless-stopped
+
+  web:
+    environment:
+      NODE_ENV: production
+    restart: unless-stopped

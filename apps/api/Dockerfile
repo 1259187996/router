@@ -17,4 +17,6 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
+RUN pnpm --filter @router/shared build
+
 CMD ["sh", "-lc", "pnpm --filter @router/api db:migrate && pnpm --filter @router/api db:seed-admin && pnpm --filter @router/api exec tsx src/server.ts"]
