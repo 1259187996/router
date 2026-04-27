@@ -70,7 +70,7 @@ export function ModalShell({
         lastFocusedElement.focus();
       }
     };
-  }, [onClose, open]);
+  }, [open]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape') {

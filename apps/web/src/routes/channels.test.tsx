@@ -158,10 +158,10 @@ describe('ChannelsRouteComponent', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '新增渠道' }));
     const createChannelDialog = await screen.findByRole('dialog', { name: '新增渠道' });
-    setControlValue(
-      getInputElement<HTMLInputElement>(createChannelDialog, '#channel-name'),
-      'Anthropic 备链',
-    );
+    const channelNameInput = getInputElement<HTMLInputElement>(createChannelDialog, '#channel-name');
+    await userEvent.click(channelNameInput);
+    await userEvent.type(channelNameInput, 'Anthropic 备链');
+    expect(channelNameInput).toHaveFocus();
     setControlValue(
       getInputElement<HTMLInputElement>(createChannelDialog, '#channel-base-url'),
       'https://api.anthropic.com/v1',
