@@ -31,7 +31,7 @@ export function LoginRouteComponent({
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-6 px-4 py-4 sm:px-6 lg:flex-row lg:items-stretch">
-      <section className="surface-panel grid-glow flex min-h-[320px] flex-1 flex-col justify-between rounded-[34px] px-6 py-8 sm:px-8 lg:px-10">
+      <section className="app-surface grid-glow flex min-h-[320px] flex-1 flex-col justify-between rounded-[34px] px-6 py-8 sm:px-8 lg:px-10">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.42em] text-brand">
             Router Console
@@ -46,7 +46,7 @@ export function LoginRouteComponent({
 
         <div className="mt-8 grid gap-4 lg:grid-cols-3">
           {highlights.map(([title, description]) => (
-            <article key={title} className="surface-card rounded-[24px] p-5">
+            <article key={title} className="app-muted-surface rounded-[24px] p-5">
               <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">Module</p>
               <h2 className="mt-3 text-lg font-semibold text-brand-strong">{title}</h2>
               <p className="mt-3 text-sm leading-6 text-ink-soft">{description}</p>
@@ -55,7 +55,7 @@ export function LoginRouteComponent({
         </div>
       </section>
 
-      <section className="surface-panel w-full rounded-[34px] p-6 sm:p-8 lg:w-[480px] lg:p-10">
+      <section className="app-surface w-full rounded-[34px] p-6 sm:p-8 lg:w-[480px] lg:p-10">
         <div className="mb-8">
           <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-accent">Access Gate</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-brand-strong">控制台登录</h2>

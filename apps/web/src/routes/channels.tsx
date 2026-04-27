@@ -152,7 +152,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
               detail: '策略别名映射',
             },
           ].map((metric) => (
-            <article key={metric.label} className="surface-panel rounded-[28px] p-5">
+            <article key={metric.label} className="app-surface rounded-[28px] p-5">
               <p className="font-mono text-[11px] uppercase tracking-[0.26em] text-accent">
                 {metric.label}
               </p>
@@ -164,7 +164,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
           ))}
         </div>
 
-        <section className="surface-panel rounded-[30px] p-6">
+        <section className="app-surface rounded-[30px] p-6">
           <div className="flex flex-col gap-4 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
@@ -252,7 +252,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
           </div>
         </section>
 
-        <section className="surface-panel rounded-[30px] p-6">
+        <section className="app-surface rounded-[30px] p-6">
           <div className="flex flex-col gap-3 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
@@ -269,7 +269,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
 
           <div className="mt-6 grid gap-4">
             {logicalModels.map((logicalModel) => (
-              <article key={logicalModel.id} className="surface-card rounded-[24px] p-5">
+              <article key={logicalModel.id} className="app-muted-surface rounded-[24px] p-5">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                       <div className="flex items-center gap-3">
@@ -330,7 +330,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
 
       <aside className="space-y-4">
         {isChannelDrawerOpen ? (
-          <section className="surface-panel grid-glow rounded-[30px] p-6">
+          <section className="app-surface grid-glow rounded-[30px] p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
@@ -411,7 +411,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
             </form>
           </section>
         ) : (
-          <section className="surface-panel rounded-[30px] p-6">
+          <section className="app-surface rounded-[30px] p-6">
             <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">Channel Drawer</p>
             <h3 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">新增渠道</h3>
             <p className="mt-3 text-sm leading-6 text-ink-soft">
@@ -420,7 +420,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
           </section>
         )}
 
-        <section className="surface-panel rounded-[30px] p-6">
+        <section className="app-surface rounded-[30px] p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">Strategy Editor</p>
           <h3 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">
             逻辑模型编辑区

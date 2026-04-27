@@ -93,7 +93,7 @@ export function TokensRouteComponent({ api }: { api: TokensRouteApi }) {
               detail: '用于令牌授权',
             },
           ].map((metric) => (
-            <article key={metric.label} className="surface-panel rounded-[28px] p-5">
+            <article key={metric.label} className="app-surface rounded-[28px] p-5">
               <p className="font-mono text-[11px] uppercase tracking-[0.26em] text-accent">
                 {metric.label}
               </p>
@@ -105,7 +105,7 @@ export function TokensRouteComponent({ api }: { api: TokensRouteApi }) {
           ))}
         </div>
 
-        <section className="surface-panel rounded-[30px] p-6">
+        <section className="app-surface rounded-[30px] p-6">
           <div className="flex flex-col gap-4 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">Tokens</p>
@@ -192,7 +192,7 @@ export function TokensRouteComponent({ api }: { api: TokensRouteApi }) {
 
       <aside className="space-y-4">
         {isDrawerOpen ? (
-          <section className="surface-panel grid-glow rounded-[30px] p-6">
+          <section className="app-surface grid-glow rounded-[30px] p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
@@ -282,7 +282,7 @@ export function TokensRouteComponent({ api }: { api: TokensRouteApi }) {
             </form>
           </section>
         ) : (
-          <section className="surface-panel rounded-[30px] p-6">
+          <section className="app-surface rounded-[30px] p-6">
             <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">Token Drawer</p>
             <h3 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">新建令牌</h3>
             <p className="mt-3 text-sm leading-6 text-ink-soft">
@@ -291,7 +291,7 @@ export function TokensRouteComponent({ api }: { api: TokensRouteApi }) {
           </section>
         )}
 
-        <section className="surface-panel rounded-[30px] p-6">
+        <section className="app-surface rounded-[30px] p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">Secret Window</p>
           <h3 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">
             新令牌回显

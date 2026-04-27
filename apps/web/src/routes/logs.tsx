@@ -44,7 +44,7 @@ export function LogsRouteComponent({ api }: { api: LogsRouteApi }) {
               detail: '当前列表内费用合计',
             },
           ].map((metric) => (
-            <article key={metric.label} className="surface-panel rounded-[28px] p-5">
+            <article key={metric.label} className="app-surface rounded-[28px] p-5">
               <p className="font-mono text-[11px] uppercase tracking-[0.26em] text-accent">
                 {metric.label}
               </p>
@@ -56,7 +56,7 @@ export function LogsRouteComponent({ api }: { api: LogsRouteApi }) {
           ))}
         </div>
 
-        <section className="surface-panel rounded-[30px] p-6">
+        <section className="app-surface rounded-[30px] p-6">
           <div className="flex flex-col gap-3 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
@@ -133,7 +133,7 @@ export function LogsRouteComponent({ api }: { api: LogsRouteApi }) {
       </section>
 
       <aside className="space-y-4">
-        <section className="surface-panel rounded-[30px] p-6">
+        <section className="app-surface rounded-[30px] p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">Read Cost</p>
           <h3 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">
             费用怎么看
@@ -145,7 +145,7 @@ export function LogsRouteComponent({ api }: { api: LogsRouteApi }) {
           </div>
         </section>
 
-        <section className="surface-panel rounded-[30px] p-6">
+        <section className="app-surface rounded-[30px] p-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">Status Lens</p>
           <h3 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">
             状态提示
@@ -156,7 +156,7 @@ export function LogsRouteComponent({ api }: { api: LogsRouteApi }) {
               ['需复核', '响应返回成功，但 usage 不完整或不能自动结算。'],
               ['流中断', '流式传输中途失败，需要结合尝试时间线排查。'],
             ].map(([label, detail]) => (
-              <article key={label} className="surface-card rounded-[22px] p-4">
+              <article key={label} className="app-muted-surface rounded-[22px] p-4">
                 <p className="font-medium text-ink">{label}</p>
                 <p className="mt-2 text-sm leading-6 text-ink-soft">{detail}</p>
               </article>

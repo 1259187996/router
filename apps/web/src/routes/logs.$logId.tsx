@@ -56,7 +56,7 @@ function DetailMetric({
   detail: string;
 }) {
   return (
-    <article className="surface-panel rounded-[28px] p-5">
+    <article className="app-surface rounded-[28px] p-5">
       <p className="font-mono text-[11px] uppercase tracking-[0.26em] text-accent">{label}</p>
       <p className="mt-4 text-4xl font-semibold tracking-tight text-brand-strong">{value}</p>
       <p className="mt-3 text-sm text-ink-soft">{detail}</p>
@@ -66,7 +66,7 @@ function DetailMetric({
 
 function JsonPanel({ title, body }: { title: string; body: string }) {
   return (
-    <article className="surface-card rounded-[24px] p-5">
+    <article className="app-muted-surface rounded-[24px] p-5">
       <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent">{title}</p>
       <pre className="mt-4 overflow-x-auto rounded-[18px] bg-[rgba(18,70,61,0.06)] p-4 font-mono text-xs leading-6 text-ink">
         {body}
@@ -96,7 +96,7 @@ export function LogDetailRouteComponent({
 
   return (
     <div className="space-y-4">
-      <section className="surface-panel rounded-[30px] p-6">
+      <section className="app-surface rounded-[30px] p-6">
         <div className="flex flex-col gap-4 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <a href="/logs" className="text-sm font-medium text-accent transition hover:text-brand-strong">
@@ -144,7 +144,7 @@ export function LogDetailRouteComponent({
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_380px]">
         <section className="space-y-4">
-          <section className="surface-panel rounded-[30px] p-6">
+          <section className="app-surface rounded-[30px] p-6">
             <div className="flex flex-col gap-3 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
@@ -163,7 +163,7 @@ export function LogDetailRouteComponent({
             {priceBreakdown.length > 0 ? (
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 {priceBreakdown.map((item) => (
-                  <article key={item.label} className="surface-card rounded-[22px] p-5">
+                  <article key={item.label} className="app-muted-surface rounded-[22px] p-5">
                     <p className="text-sm font-medium text-ink">{item.label}</p>
                     <p className="mt-3 font-mono text-sm text-brand-strong">{item.expression}</p>
                     <p className="mt-3 text-2xl font-semibold tracking-tight text-brand-strong">
@@ -179,7 +179,7 @@ export function LogDetailRouteComponent({
             )}
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <article className="surface-card rounded-[22px] p-5">
+              <article className="app-muted-surface rounded-[22px] p-5">
                 <p className="text-sm font-medium text-ink">结算对照</p>
                 <div className="mt-4 space-y-3 text-sm text-ink-soft">
                   <div className="flex items-center justify-between gap-3">
@@ -197,7 +197,7 @@ export function LogDetailRouteComponent({
                 </div>
               </article>
 
-              <article className="surface-card rounded-[22px] p-5">
+              <article className="app-muted-surface rounded-[22px] p-5">
                 <p className="text-sm font-medium text-ink">最终路由</p>
                 <div className="mt-4 space-y-3 text-sm text-ink-soft">
                   <div className="flex items-center justify-between gap-3">
@@ -219,7 +219,7 @@ export function LogDetailRouteComponent({
             </div>
           </section>
 
-          <section className="surface-panel rounded-[30px] p-6">
+          <section className="app-surface rounded-[30px] p-6">
             <div className="flex flex-col gap-3 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
@@ -236,7 +236,7 @@ export function LogDetailRouteComponent({
 
             <div className="mt-6 grid gap-4">
               {attempts.map((attempt) => (
-                <article key={attempt.id} className="surface-card rounded-[24px] p-5">
+                <article key={attempt.id} className="app-muted-surface rounded-[24px] p-5">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                       <div className="flex items-center gap-3">

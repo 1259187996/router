@@ -34,7 +34,7 @@ function createSessionQueryOptions(api: RouterApi) {
 function SessionLoading({ label }: { label: string }) {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-[1600px] items-center justify-center px-4 py-6">
-      <div className="surface-panel rounded-[30px] px-6 py-5 text-center">
+      <div className="app-surface rounded-[30px] px-6 py-5 text-center">
         <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-accent">Session</p>
         <p className="mt-3 text-sm text-ink-soft">{label}</p>
       </div>

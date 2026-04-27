@@ -51,15 +51,13 @@ body {
   background: color-mix(in oklab, var(--color-accent) 24%, white);
 }
 
-.app-surface,
-.surface-panel {
+.app-surface {
   border: 1px solid color-mix(in oklab, var(--color-line-soft) 82%, white);
   background: var(--color-panel);
   box-shadow: 0 18px 48px -30px rgba(10, 34, 29, 0.14);
 }
 
-.app-muted-surface,
-.surface-card {
+.app-muted-surface {
   border: 1px solid color-mix(in oklab, var(--color-line-soft) 88%, white);
   background: var(--color-panel-muted);
   box-shadow: 0 12px 32px -24px rgba(10, 34, 29, 0.14);

@@ -12,7 +12,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-canvas text-ink">
       <div className="mx-auto flex min-h-screen max-w-[1600px] gap-4 p-4 sm:p-6">
-        <aside className="surface-panel grid-glow hidden w-[296px] shrink-0 rounded-[30px] p-5 text-sm lg:flex lg:flex-col">
+        <aside className="app-surface grid-glow hidden w-[296px] shrink-0 rounded-[30px] p-5 text-sm lg:flex lg:flex-col">
           <div className="rounded-[24px] border border-white/80 bg-[linear-gradient(135deg,rgba(18,70,61,0.12),rgba(255,255,255,0.74))] p-5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.42em] text-brand">Router Ops</p>
             <h1 className="mt-3 text-2xl font-semibold tracking-tight text-brand-strong">
@@ -52,7 +52,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <header className="surface-panel flex flex-col gap-4 rounded-[30px] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <header className="app-surface flex flex-col gap-4 rounded-[30px] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.38em] text-brand">
                 Router Operations Console
@@ -65,7 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="rounded-full border border-brand/10 bg-brand px-4 py-2 text-sm font-medium text-white">
                 Session Ready
               </div>
-              <div className="surface-card rounded-full px-4 py-2 font-mono text-xs uppercase tracking-[0.24em] text-ink-soft">
+              <div className="app-muted-surface rounded-full px-4 py-2 font-mono text-xs uppercase tracking-[0.24em] text-ink-soft">
                 CN / OPS
               </div>
             </div>
