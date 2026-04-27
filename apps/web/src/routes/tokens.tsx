@@ -79,6 +79,7 @@ export function TokensRouteComponent({ api }: { api: TokensRouteApi }) {
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_400px]">
       <section className="space-y-4">
+        <h1 className="sr-only">令牌管理</h1>
         <div className="grid gap-4 md:grid-cols-3">
           {[
             { label: '令牌总数', value: `${tokens.length}`.padStart(2, '0'), detail: 'API 使用资产' },

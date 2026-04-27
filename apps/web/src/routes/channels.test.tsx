@@ -106,7 +106,8 @@ describe('ChannelsRouteComponent', () => {
 
     render(<ChannelsRouteComponent api={api} />);
 
-    expect(await screen.findByText('渠道策略')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: '渠道策略' })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(await screen.findByText('OpenAI-compatible')).toBeInTheDocument();
     expect((await screen.findAllByText('OpenAI 主链路')).length).toBeGreaterThan(0);
     expect(await screen.findByText('chat-default')).toBeInTheDocument();

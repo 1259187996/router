@@ -76,7 +76,8 @@ describe('TokensRouteComponent', () => {
 
     render(<TokensRouteComponent api={api} />);
 
-    expect(await screen.findByText('令牌管理')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: '令牌管理' })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(await screen.findByText('SDK 生产')).toBeInTheDocument();
     expect(await screen.findByText('chat-default')).toBeInTheDocument();
 
@@ -117,6 +118,7 @@ describe('TokensRouteComponent', () => {
 
     render(<TokensRouteComponent api={api} />);
 
+    expect(await screen.findByRole('heading', { level: 1, name: '令牌管理' })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole('button', { name: '新建令牌' }));
 
     expect(await screen.findByText(/还没有可绑定的逻辑模型/)).toBeInTheDocument();

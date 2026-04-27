@@ -28,7 +28,8 @@ describe('LogsRouteComponent', () => {
 
     render(<LogsRouteComponent api={api} />);
 
-    expect(await screen.findByRole('heading', { name: '请求日志' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: '请求日志' })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     const row = await screen.findByRole('row', { name: /responses/i });
 
     expect(within(row).getByText('responses')).toBeInTheDocument();

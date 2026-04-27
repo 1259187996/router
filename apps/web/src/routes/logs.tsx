@@ -29,6 +29,7 @@ export function LogsRouteComponent({ api }: { api: LogsRouteApi }) {
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
       <section className="space-y-4">
+        <h1 className="sr-only">请求日志</h1>
         <div className="grid gap-4 md:grid-cols-4">
           {[
             { label: '请求总数', value: `${logs.length}`.padStart(2, '0'), detail: '按单次请求审计' },

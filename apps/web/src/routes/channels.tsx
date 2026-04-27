@@ -138,6 +138,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_400px]">
       <section className="space-y-4">
+        <h1 className="sr-only">渠道策略</h1>
         <div className="grid gap-4 md:grid-cols-3">
           {[
             { label: '渠道总数', value: `${channels.length}`.padStart(2, '0'), detail: '接入出口资产' },
