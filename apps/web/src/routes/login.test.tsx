@@ -4,6 +4,13 @@ import { render, screen, waitFor } from '../test-utils';
 import { LoginRouteComponent } from './login';
 
 describe('LoginRouteComponent', () => {
+  it('shows the new console positioning copy', () => {
+    render(<LoginRouteComponent api={{ login: vi.fn() }} />);
+
+    expect(screen.getByText('统一分发外部模型渠道')).toBeInTheDocument();
+    expect(screen.getByText('按 Key / 用户查看 token 消耗')).toBeInTheDocument();
+  });
+
   it('submits email and password through the api client and enters the console', async () => {
     const login = vi.fn().mockResolvedValue({ user: { email: 'admin@example.com' } });
     const onAuthenticated = vi.fn();

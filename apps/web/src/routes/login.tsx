@@ -5,9 +5,9 @@ import { apiClient, type LoginInput } from '../lib/api-client';
 type LoginApi = Pick<typeof apiClient, 'login'>;
 
 const highlights = [
-  ['统一渠道面板', '集中查看上游连通性、策略配置和流量走向。'],
-  ['安全登录态', '基于服务端 Session Cookie，避免在浏览器暴露长期密钥。'],
-  ['运营视图基线', '为后续的日志、令牌与计费页面提供一致视觉骨架。'],
+  ['统一分发外部模型渠道', '把不同供应商入口整理成一致接入面，减少团队手工切换。'],
+  ['按 Key / 用户查看 token 消耗', '从预算、配额到异常峰值，都能落到可追踪的运营账本。'],
+  ['保留请求日志与审计线索', '登录后继续进入渠道、权限与日志页，支撑排查与复盘。'],
 ];
 
 export function LoginRouteComponent({
@@ -30,37 +30,56 @@ export function LoginRouteComponent({
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-6 px-4 py-4 sm:px-6 lg:flex-row lg:items-stretch">
-      <section className="app-surface grid-glow flex min-h-[320px] flex-1 flex-col justify-between rounded-[34px] px-6 py-8 sm:px-8 lg:px-10">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.42em] text-brand">
+    <div className="grid min-h-screen gap-6 bg-canvas px-4 py-4 lg:grid-cols-[1.1fr_480px]">
+      <section className="relative hidden overflow-hidden rounded-[32px] bg-brand lg:flex lg:flex-col lg:justify-between">
+        <img
+          src="https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=1600&q=80"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover opacity-20"
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,29,25,0.18),rgba(7,29,25,0.82))]" />
+
+        <div className="relative px-8 py-8 xl:px-10 xl:py-10">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/60">
             Router Console
           </p>
-          <h1 className="mt-4 max-w-xl text-4xl font-semibold tracking-tight text-brand-strong sm:text-5xl">
-            让多渠道 LLM 出口像运营驾驶舱一样可见、可控、可审计
+          <h1 className="mt-4 max-w-2xl text-5xl font-semibold tracking-tight text-white">
+            把模型出口、Key 分发和 token 账本收进一张控制台封面
           </h1>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-ink-soft">
-            登录后进入统一控制台，对接入渠道、逻辑模型、API Token 与请求日志进行集中管理。
+          <p className="mt-5 max-w-xl text-base leading-7 text-white/74">
+            为运营、平台和研发团队提供统一入口，在同一处查看上游渠道、权限发放和消耗轨迹。
           </p>
         </div>
 
-        <div className="mt-8 grid gap-4 lg:grid-cols-3">
-          {highlights.map(([title, description]) => (
-            <article key={title} className="app-muted-surface rounded-[24px] p-5">
-              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">Module</p>
-              <h2 className="mt-3 text-lg font-semibold text-brand-strong">{title}</h2>
-              <p className="mt-3 text-sm leading-6 text-ink-soft">{description}</p>
+        <div className="relative grid gap-4 px-8 pb-8 xl:px-10 xl:pb-10">
+          {highlights.map(([title, description], index) => (
+            <article
+              key={title}
+              className="rounded-[24px] border border-white/12 bg-white/8 px-5 py-5 backdrop-blur-sm"
+            >
+              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-white/48">
+                Capability 0{index + 1}
+              </p>
+              <h2 className="mt-3 text-xl font-semibold text-white">{title}</h2>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-white/70">{description}</p>
             </article>
           ))}
         </div>
       </section>
 
-      <section className="app-surface w-full rounded-[34px] p-6 sm:p-8 lg:w-[480px] lg:p-10">
+      <section className="app-surface rounded-[32px] p-8 lg:p-10">
         <div className="mb-8">
           <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-accent">Access Gate</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-brand-strong">控制台登录</h2>
           <p className="mt-3 text-sm leading-6 text-ink-soft">
-            使用管理员或已启用账户登录，进入路由控制平面。
+            使用管理员或已启用账户登录，进入企业模型出口控制台。
+          </p>
+        </div>
+
+        <div className="mb-8 rounded-[24px] border border-line-soft bg-[rgba(18,70,61,0.05)] p-5 lg:hidden">
+          <p className="text-base font-semibold text-brand-strong">统一接入、权限发放与消耗追踪</p>
+          <p className="mt-2 text-sm leading-6 text-ink-soft">
+            登录后可继续查看渠道接入、Key 预算和 token 消耗账本。
           </p>
         </div>
 

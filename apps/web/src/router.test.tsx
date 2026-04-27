@@ -41,6 +41,6 @@ describe('app router auth flow', () => {
 
     renderRouter(router);
 
-    expect(await screen.findByText(/路由控制台概览/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Token 使用总览/i)).toBeInTheDocument();
   });
 });
