@@ -6,10 +6,53 @@ import type {
   CreateLogicalModelInput,
   LogicalModelRecord,
 } from '../lib/api-client';
-import { render, screen, waitFor, within } from '../test-utils';
+import { fireEvent, render, screen, waitFor, within } from '../test-utils';
 import { ChannelsRouteComponent } from './channels';
 
+function getInputElement<T extends HTMLElement>(container: HTMLElement, selector: string) {
+  const element = container.querySelector<T>(selector);
+
+  if (!element) {
+    throw new Error(`Expected to find element: ${selector}`);
+  }
+
+  return element;
+}
+
+function setControlValue(element: HTMLInputElement | HTMLTextAreaElement, value: string) {
+  fireEvent.change(element, { target: { value } });
+}
+
 describe('ChannelsRouteComponent', () => {
+  it('moves focus into the modal, closes on Escape, and restores focus to the trigger', async () => {
+    const api = {
+      listChannels: vi.fn().mockResolvedValue({ channels: [] }),
+      listLogicalModels: vi.fn().mockResolvedValue({ logicalModels: [] }),
+      createChannel: vi.fn(),
+      testChannel: vi.fn(),
+      createLogicalModel: vi.fn(),
+    };
+
+    render(<ChannelsRouteComponent api={api} />);
+
+    const createChannelButton = await screen.findByRole('button', { name: '新增渠道' });
+    await userEvent.click(createChannelButton);
+
+    const createChannelDialog = await screen.findByRole('dialog', { name: '新增渠道' });
+    const activeElement =
+      document.activeElement instanceof HTMLElement || document.activeElement instanceof SVGElement
+        ? document.activeElement
+        : null;
+    expect(createChannelDialog).toContainElement(activeElement);
+
+    await userEvent.keyboard('{Escape}');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: '新增渠道' })).not.toBeInTheDocument();
+    });
+    expect(createChannelButton).toHaveFocus();
+  });
+
   it('renders channels and logical model routes, creates a channel, tests a channel, and creates a logical model', async () => {
     const channels: ChannelRecord[] = [
       {
@@ -115,13 +158,19 @@ describe('ChannelsRouteComponent', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '新增渠道' }));
     const createChannelDialog = await screen.findByRole('dialog', { name: '新增渠道' });
-    await userEvent.type(within(createChannelDialog).getByLabelText('渠道名称'), 'Anthropic 备链');
-    await userEvent.type(
-      within(createChannelDialog).getByLabelText('Base URL'),
+    setControlValue(
+      getInputElement<HTMLInputElement>(createChannelDialog, '#channel-name'),
+      'Anthropic 备链',
+    );
+    setControlValue(
+      getInputElement<HTMLInputElement>(createChannelDialog, '#channel-base-url'),
       'https://api.anthropic.com/v1',
     );
-    await userEvent.type(within(createChannelDialog).getByLabelText('API Key'), 'sk-ant');
-    await userEvent.type(within(createChannelDialog).getByLabelText('默认模型'), 'claude-3-7-sonnet');
+    setControlValue(getInputElement<HTMLInputElement>(createChannelDialog, '#channel-api-key'), 'sk-ant');
+    setControlValue(
+      getInputElement<HTMLInputElement>(createChannelDialog, '#channel-default-model'),
+      'claude-3-7-sonnet',
+    );
     await userEvent.click(within(createChannelDialog).getByRole('button', { name: '保存渠道' }));
 
     await waitFor(() => {
@@ -131,6 +180,9 @@ describe('ChannelsRouteComponent', () => {
         apiKey: 'sk-ant',
         defaultModelId: 'claude-3-7-sonnet',
       });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: '新增渠道' })).not.toBeInTheDocument();
     });
     expect((await screen.findAllByText('Anthropic 备链')).length).toBeGreaterThan(0);
 
@@ -144,19 +196,38 @@ describe('ChannelsRouteComponent', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '新建逻辑模型' }));
     const createLogicalModelDialog = await screen.findByRole('dialog', { name: '新建逻辑模型' });
-    await userEvent.type(within(createLogicalModelDialog).getByLabelText('逻辑模型别名'), 'analysis-default');
-    await userEvent.type(within(createLogicalModelDialog).getByLabelText('说明'), '分析任务优先走 OpenAI');
-    await userEvent.selectOptions(within(createLogicalModelDialog).getByLabelText('关联渠道'), 'channel-1');
-    await userEvent.clear(within(createLogicalModelDialog).getByLabelText('上游模型'));
-    await userEvent.type(within(createLogicalModelDialog).getByLabelText('上游模型'), 'o4-mini');
-    await userEvent.clear(within(createLogicalModelDialog).getByLabelText('输入价格'));
-    await userEvent.type(within(createLogicalModelDialog).getByLabelText('输入价格'), '1.2000');
-    await userEvent.clear(within(createLogicalModelDialog).getByLabelText('输出价格'));
-    await userEvent.type(within(createLogicalModelDialog).getByLabelText('输出价格'), '4.8000');
-    await userEvent.clear(within(createLogicalModelDialog).getByLabelText('币种'));
-    await userEvent.type(within(createLogicalModelDialog).getByLabelText('币种'), 'USD');
-    await userEvent.clear(within(createLogicalModelDialog).getByLabelText('优先级'));
-    await userEvent.type(within(createLogicalModelDialog).getByLabelText('优先级'), '5');
+    setControlValue(
+      getInputElement<HTMLInputElement>(createLogicalModelDialog, '#logical-model-alias'),
+      'analysis-default',
+    );
+    setControlValue(
+      getInputElement<HTMLTextAreaElement>(createLogicalModelDialog, '#logical-model-description'),
+      '分析任务优先走 OpenAI',
+    );
+    await userEvent.selectOptions(
+      getInputElement<HTMLSelectElement>(createLogicalModelDialog, '#route-channel-0'),
+      'channel-1',
+    );
+    setControlValue(
+      getInputElement<HTMLInputElement>(createLogicalModelDialog, '#route-upstream-model-0'),
+      'o4-mini',
+    );
+    setControlValue(
+      getInputElement<HTMLInputElement>(createLogicalModelDialog, '#route-input-price-0'),
+      '1.2000',
+    );
+    setControlValue(
+      getInputElement<HTMLInputElement>(createLogicalModelDialog, '#route-output-price-0'),
+      '4.8000',
+    );
+    setControlValue(
+      getInputElement<HTMLInputElement>(createLogicalModelDialog, '#route-currency-0'),
+      'USD',
+    );
+    setControlValue(
+      getInputElement<HTMLInputElement>(createLogicalModelDialog, '#route-priority-0'),
+      '5',
+    );
     await userEvent.click(
       within(createLogicalModelDialog).getByRole('button', { name: '保存逻辑模型' }),
     );
@@ -176,6 +247,9 @@ describe('ChannelsRouteComponent', () => {
           },
         ],
       });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: '新建逻辑模型' })).not.toBeInTheDocument();
     });
     expect(await screen.findByText('analysis-default')).toBeInTheDocument();
   });

@@ -437,51 +437,67 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
             createChannelMutation.mutate();
           }}
         >
-          <label className="block">
-            <span className="text-sm font-medium text-ink">API 类型</span>
+          <div className="block">
+            <p className="text-sm font-medium text-ink">API 类型</p>
             <div className="mt-2 rounded-[18px] border border-line-soft bg-[rgba(18,70,61,0.05)] px-4 py-3">
               <p className="font-medium text-brand-strong">OpenAI-compatible</p>
               <p className="mt-1 text-sm leading-6 text-ink-soft">
                 自动兼容 `chat/completions`、`embeddings`、`responses` 三类常用接口。
               </p>
             </div>
-          </label>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-sm font-medium text-ink">渠道名称</span>
+            <div className="block">
+              <label htmlFor="channel-name" className="text-sm font-medium text-ink">
+                渠道名称
+              </label>
               <input
+                id="channel-name"
+                type="text"
                 value={channelForm.name}
                 onChange={(event) => setChannelForm((current) => ({ ...current, name: event.target.value }))}
                 className={fieldClassName}
               />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-ink">默认模型</span>
+            </div>
+            <div className="block">
+              <label htmlFor="channel-default-model" className="text-sm font-medium text-ink">
+                默认模型
+              </label>
               <input
+                id="channel-default-model"
+                type="text"
                 value={channelForm.defaultModelId}
                 onChange={(event) =>
                   setChannelForm((current) => ({ ...current, defaultModelId: event.target.value }))
                 }
                 className={fieldClassName}
               />
-            </label>
+            </div>
           </div>
-          <label className="block">
-            <span className="text-sm font-medium text-ink">Base URL</span>
+          <div className="block">
+            <label htmlFor="channel-base-url" className="text-sm font-medium text-ink">
+              Base URL
+            </label>
             <input
+              id="channel-base-url"
+              type="text"
               value={channelForm.baseUrl}
               onChange={(event) => setChannelForm((current) => ({ ...current, baseUrl: event.target.value }))}
               className={fieldClassName}
             />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-ink">API Key</span>
+          </div>
+          <div className="block">
+            <label htmlFor="channel-api-key" className="text-sm font-medium text-ink">
+              API Key
+            </label>
             <input
+              id="channel-api-key"
+              type="text"
               value={channelForm.apiKey}
               onChange={(event) => setChannelForm((current) => ({ ...current, apiKey: event.target.value }))}
               className={fieldClassName}
             />
-          </label>
+          </div>
 
           <div className="flex flex-col-reverse gap-3 border-t border-line-soft pt-5 sm:flex-row sm:justify-end">
             <button
@@ -518,19 +534,26 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
         >
           <div className="grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
             <div className="space-y-4">
-              <label className="block">
-                <span className="text-sm font-medium text-ink">逻辑模型别名</span>
+              <div className="block">
+                <label htmlFor="logical-model-alias" className="text-sm font-medium text-ink">
+                  逻辑模型别名
+                </label>
                 <input
+                  id="logical-model-alias"
+                  type="text"
                   value={logicalModelForm.alias}
                   onChange={(event) =>
                     setLogicalModelForm((current) => ({ ...current, alias: event.target.value }))
                   }
                   className={fieldClassName}
                 />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-ink">说明</span>
+              </div>
+              <div className="block">
+                <label htmlFor="logical-model-description" className="text-sm font-medium text-ink">
+                  说明
+                </label>
                 <textarea
+                  id="logical-model-description"
                   value={logicalModelForm.description}
                   onChange={(event) =>
                     setLogicalModelForm((current) => ({ ...current, description: event.target.value }))
@@ -538,7 +561,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                   rows={5}
                   className={fieldClassName}
                 />
-              </label>
+              </div>
               <div className="rounded-[22px] border border-line-soft bg-[rgba(18,70,61,0.04)] p-4 text-sm leading-6 text-ink-soft">
                 <p className="font-medium text-brand-strong">录入提醒</p>
                 <p className="mt-2">一个逻辑模型可以挂多条 route；运营台会按优先级展示这些编排结果。</p>
@@ -571,9 +594,12 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                   </div>
 
                   <div className="grid gap-4">
-                    <label className="block">
-                      <span className="text-sm font-medium text-ink">关联渠道</span>
+                    <div className="block">
+                      <label htmlFor={`route-channel-${index}`} className="text-sm font-medium text-ink">
+                        关联渠道
+                      </label>
                       <select
+                        id={`route-channel-${index}`}
                         value={route.channelId}
                         onChange={(event) =>
                           setRouteDrafts((current) =>
@@ -591,10 +617,14 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                           </option>
                         ))}
                       </select>
-                    </label>
-                    <label className="block">
-                      <span className="text-sm font-medium text-ink">上游模型</span>
+                    </div>
+                    <div className="block">
+                      <label htmlFor={`route-upstream-model-${index}`} className="text-sm font-medium text-ink">
+                        上游模型
+                      </label>
                       <input
+                        id={`route-upstream-model-${index}`}
+                        type="text"
                         value={route.upstreamModelId}
                         onChange={(event) =>
                           setRouteDrafts((current) =>
@@ -607,11 +637,15 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                         }
                         className={fieldClassName}
                       />
-                    </label>
+                    </div>
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <label className="block">
-                        <span className="text-sm font-medium text-ink">输入价格</span>
+                      <div className="block">
+                        <label htmlFor={`route-input-price-${index}`} className="text-sm font-medium text-ink">
+                          输入价格
+                        </label>
                         <input
+                          id={`route-input-price-${index}`}
+                          type="text"
                           value={route.inputPricePer1m}
                           onChange={(event) =>
                             setRouteDrafts((current) =>
@@ -624,10 +658,14 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                           }
                           className={fieldClassName}
                         />
-                      </label>
-                      <label className="block">
-                        <span className="text-sm font-medium text-ink">输出价格</span>
+                      </div>
+                      <div className="block">
+                        <label htmlFor={`route-output-price-${index}`} className="text-sm font-medium text-ink">
+                          输出价格
+                        </label>
                         <input
+                          id={`route-output-price-${index}`}
+                          type="text"
                           value={route.outputPricePer1m}
                           onChange={(event) =>
                             setRouteDrafts((current) =>
@@ -640,12 +678,16 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                           }
                           className={fieldClassName}
                         />
-                      </label>
+                      </div>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <label className="block">
-                        <span className="text-sm font-medium text-ink">币种</span>
+                      <div className="block">
+                        <label htmlFor={`route-currency-${index}`} className="text-sm font-medium text-ink">
+                          币种
+                        </label>
                         <input
+                          id={`route-currency-${index}`}
+                          type="text"
                           value={route.currency}
                           onChange={(event) =>
                             setRouteDrafts((current) =>
@@ -656,10 +698,14 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                           }
                           className={fieldClassName}
                         />
-                      </label>
-                      <label className="block">
-                        <span className="text-sm font-medium text-ink">优先级</span>
+                      </div>
+                      <div className="block">
+                        <label htmlFor={`route-priority-${index}`} className="text-sm font-medium text-ink">
+                          优先级
+                        </label>
                         <input
+                          id={`route-priority-${index}`}
+                          type="text"
                           value={route.priority}
                           onChange={(event) =>
                             setRouteDrafts((current) =>
@@ -670,7 +716,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                           }
                           className={fieldClassName}
                         />
-                      </label>
+                      </div>
                     </div>
                   </div>
                 </div>

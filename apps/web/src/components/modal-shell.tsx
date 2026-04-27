@@ -1,4 +1,4 @@
-import { useEffect, useId, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
 
 const sizeClassName = {
   md: 'max-w-2xl',
@@ -16,6 +16,25 @@ type ModalShellProps = {
   size?: keyof typeof sizeClassName;
 };
 
+const focusableSelector = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
+function getFocusableElements(container: HTMLElement | null) {
+  if (!container) {
+    return [];
+  }
+
+  return Array.from(container.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+    (element) => !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true',
+  );
+}
+
 export function ModalShell({
   open,
   title,
@@ -27,28 +46,70 @@ export function ModalShell({
 }: ModalShellProps) {
   const titleId = useId();
   const descriptionId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const lastFocusedElementRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!open) {
       return undefined;
     }
 
+    lastFocusedElementRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
+    const initialFocusTarget = getFocusableElements(dialogRef.current)[0] ?? dialogRef.current;
+    initialFocusTarget?.focus();
 
     return () => {
       document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', handleKeyDown);
+      const lastFocusedElement = lastFocusedElementRef.current;
+
+      if (lastFocusedElement?.isConnected) {
+        lastFocusedElement.focus();
+      }
     };
   }, [onClose, open]);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+
+    if (event.key !== 'Tab') {
+      return;
+    }
+
+    const focusableElements = getFocusableElements(dialogRef.current);
+
+    if (focusableElements.length === 0) {
+      event.preventDefault();
+      dialogRef.current?.focus();
+      return;
+    }
+
+    const firstFocusableElement = focusableElements[0];
+    const lastFocusableElement = focusableElements[focusableElements.length - 1];
+    const activeElement = document.activeElement;
+    const focusIsInsideDialog = dialogRef.current?.contains(activeElement) ?? false;
+
+    if (event.shiftKey) {
+      if (!focusIsInsideDialog || activeElement === firstFocusableElement) {
+        event.preventDefault();
+        lastFocusableElement.focus();
+      }
+
+      return;
+    }
+
+    if (!focusIsInsideDialog || activeElement === lastFocusableElement) {
+      event.preventDefault();
+      firstFocusableElement.focus();
+    }
+  };
 
   if (!open) {
     return null;
@@ -66,6 +127,9 @@ export function ModalShell({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
+        tabIndex={-1}
+        ref={dialogRef}
+        onKeyDown={handleKeyDown}
         className={[
           'app-surface relative z-10 flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-[32px] border border-white/45 shadow-[0_36px_90px_-42px_rgba(10,34,29,0.72)] sm:max-h-[calc(100vh-3rem)]',
           sizeClassName[size],
