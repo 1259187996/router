@@ -31,7 +31,10 @@ export function LoginRouteComponent({
 
   return (
     <div className="grid min-h-screen gap-6 bg-canvas px-4 py-4 lg:grid-cols-[1.1fr_480px]">
-      <section className="relative hidden overflow-hidden rounded-[32px] bg-brand lg:flex lg:flex-col lg:justify-between">
+      <section
+        aria-label="登录品牌封面"
+        className="relative hidden overflow-hidden rounded-[32px] bg-brand lg:flex lg:flex-col lg:justify-between"
+      >
         <img
           src="https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=1600&q=80"
           alt=""
@@ -43,9 +46,9 @@ export function LoginRouteComponent({
           <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/60">
             Router Console
           </p>
-          <h2 className="mt-4 max-w-2xl text-5xl font-semibold tracking-tight text-white">
+          <p className="mt-4 max-w-2xl text-5xl font-semibold tracking-tight text-white">
             把模型出口、Key 分发和 token 账本收进一张控制台封面
-          </h2>
+          </p>
           <p className="mt-5 max-w-xl text-base leading-7 text-white/74">
             为运营、平台和研发团队提供统一入口，在同一处查看上游渠道、权限发放和消耗轨迹。
           </p>
@@ -60,7 +63,7 @@ export function LoginRouteComponent({
               <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-white/48">
                 Capability 0{index + 1}
               </p>
-              <h2 className="mt-3 text-xl font-semibold text-white">{title}</h2>
+              <p className="mt-3 text-xl font-semibold text-white">{title}</p>
               <p className="mt-3 max-w-xl text-sm leading-6 text-white/70">{description}</p>
             </article>
           ))}
@@ -76,12 +79,15 @@ export function LoginRouteComponent({
           </p>
         </div>
 
-        <div className="mb-8 rounded-[24px] border border-line-soft bg-[rgba(18,70,61,0.05)] p-5 lg:hidden">
+        <section
+          aria-label="移动端登录提示"
+          className="mb-8 rounded-[24px] border border-line-soft bg-[rgba(18,70,61,0.05)] p-5 lg:hidden"
+        >
           <p className="text-base font-semibold text-brand-strong">统一接入、权限发放与消耗追踪</p>
           <p className="mt-2 text-sm leading-6 text-ink-soft">
             登录后可继续查看渠道接入、Key 预算和 token 消耗账本。
           </p>
-        </div>
+        </section>
 
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div>
