@@ -42,5 +42,9 @@ describe('app router auth flow', () => {
     renderRouter(router);
 
     expect(await screen.findByText(/Token 使用总览/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /总览/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /渠道与路由/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Key 与权限/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /请求日志/i })).toBeInTheDocument();
   });
 });

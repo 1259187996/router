@@ -4,11 +4,13 @@ import { render, screen, waitFor } from '../test-utils';
 import { LoginRouteComponent } from './login';
 
 describe('LoginRouteComponent', () => {
-  it('shows the new console positioning copy', () => {
+  it('shows desktop and mobile login positioning copy with a top-level heading', () => {
     render(<LoginRouteComponent api={{ login: vi.fn() }} />);
 
+    expect(screen.getByRole('heading', { level: 1, name: '控制台登录' })).toBeInTheDocument();
     expect(screen.getByText('统一分发外部模型渠道')).toBeInTheDocument();
     expect(screen.getByText('按 Key / 用户查看 token 消耗')).toBeInTheDocument();
+    expect(screen.getByText('统一接入、权限发放与消耗追踪')).toBeInTheDocument();
   });
 
   it('submits email and password through the api client and enters the console', async () => {

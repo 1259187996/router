@@ -43,9 +43,9 @@ export function LoginRouteComponent({
           <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/60">
             Router Console
           </p>
-          <h1 className="mt-4 max-w-2xl text-5xl font-semibold tracking-tight text-white">
+          <h2 className="mt-4 max-w-2xl text-5xl font-semibold tracking-tight text-white">
             把模型出口、Key 分发和 token 账本收进一张控制台封面
-          </h1>
+          </h2>
           <p className="mt-5 max-w-xl text-base leading-7 text-white/74">
             为运营、平台和研发团队提供统一入口，在同一处查看上游渠道、权限发放和消耗轨迹。
           </p>
@@ -70,7 +70,7 @@ export function LoginRouteComponent({
       <section className="app-surface rounded-[32px] p-8 lg:p-10">
         <div className="mb-8">
           <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-accent">Access Gate</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-brand-strong">控制台登录</h2>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-brand-strong">控制台登录</h1>
           <p className="mt-3 text-sm leading-6 text-ink-soft">
             使用管理员或已启用账户登录，进入企业模型出口控制台。
           </p>
