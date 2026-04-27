@@ -1,129 +1,106 @@
+import { EmptyState } from '../components/empty-state';
+import { MetricTile } from '../components/metric-tile';
+import { PageHeader } from '../components/page-header';
+import { StatusBadge } from '../components/status-badge';
+
 const metrics = [
-  { label: '活跃渠道', value: '06', delta: '+2 本周' },
-  { label: '逻辑模型', value: '14', delta: '03 条策略待配置' },
-  { label: '今日请求', value: '18.4k', delta: 'P95 842ms' },
+  { label: '活跃令牌', value: '128', detail: '过去 24 小时新增 12 个' },
+  { label: '预算消耗', value: '$4.8k', detail: '本周较上周增长 9.4%' },
+  { label: '异常工单', value: '03', detail: '2 个待值班确认，1 个已抑制' },
 ];
 
-const events = [
-  { time: '08:40', title: '默认对话模型路由至 OpenAI 主链路', detail: '权重 70% / 健康度良好' },
-  { time: '09:15', title: 'Anthropic 备用链路完成健康检查', detail: '最近一次验证 92ms' },
-  { time: '09:32', title: '计费快照作业已完成', detail: '当前无未结算请求' },
+const heavyUsers = [
+  { name: 'search-batch', usage: '732k tokens', detail: '峰值出现在 10:20 - 11:00' },
+  { name: 'assistant-prod', usage: '648k tokens', detail: '较昨日上升 18%' },
+];
+
+const channelHealth = [
+  { name: 'OpenAI 主链路', status: 'ok', note: '延迟 420ms，错误率 0.2%' },
+  { name: 'Anthropic 备用链路', status: 'review_required', note: '近期重试次数偏高' },
 ];
 
 export function IndexRouteComponent() {
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_360px]">
-      <section className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-3">
-          {metrics.map((metric) => (
-            <article key={metric.label} className="surface-panel rounded-[28px] p-5">
-              <p className="font-mono text-[11px] uppercase tracking-[0.26em] text-accent">
-                {metric.label}
-              </p>
-              <p className="mt-4 text-4xl font-semibold tracking-tight text-brand-strong">
-                {metric.value}
-              </p>
-              <p className="mt-3 text-sm text-ink-soft">{metric.delta}</p>
-            </article>
-          ))}
-        </div>
+    <div className="space-y-5">
+      <span className="sr-only">路由控制台概览</span>
+      <PageHeader
+        eyebrow="Operator Overview"
+        title="Token 使用总览"
+        description="新的视觉基础层先承接运营视角的首页结构，后续 Task 3 会继续把真实图表、筛选和联动分析接入这套骨架。"
+        meta={metrics.map((metric) => (
+          <MetricTile key={metric.label} label={metric.label} value={metric.value} detail={metric.detail} />
+        ))}
+      />
 
-        <section className="surface-panel rounded-[30px] p-6">
-          <div className="flex flex-col gap-3 border-b border-line-soft pb-5 sm:flex-row sm:items-end sm:justify-between">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,0.9fr)]">
+        <section className="app-surface rounded-[28px] p-6">
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
-                Overview
+              <h2 className="text-2xl font-semibold tracking-tight text-brand-strong">高消耗用户</h2>
+              <p className="mt-2 text-sm leading-6 text-ink-soft">
+                先保留轻量排行骨架，后续接入真实租户、令牌与时间窗口筛选。
               </p>
-              <h3 className="mt-2 text-2xl font-semibold tracking-tight text-brand-strong">
-                路由控制台概览
-              </h3>
             </div>
-            <p className="max-w-xl text-sm leading-6 text-ink-soft">
-              Task 10 只交付骨架与视觉基线，这里保留后续渠道、令牌和日志页面接入的操作位。
-            </p>
+            <span className="rounded-full border border-brand/10 bg-brand px-3 py-1 font-mono text-[11px] uppercase tracking-[0.22em] text-white">
+              Top Load
+            </span>
           </div>
 
-          <div className="mt-6 grid gap-4 lg:grid-cols-[1.25fr_0.95fr]">
-            <div className="surface-card rounded-[24px] p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-brand-strong">逻辑模型流向</p>
-                  <p className="mt-1 text-sm text-ink-soft">后续在 Task 11 接入真实策略配置</p>
+          <div className="mt-5 space-y-3">
+            {heavyUsers.map((user) => (
+              <article
+                key={user.name}
+                className="app-muted-surface rounded-[22px] px-4 py-4"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-medium text-ink">{user.name}</p>
+                    <p className="mt-1 text-sm text-ink-soft">{user.detail}</p>
+                  </div>
+                  <p className="font-mono text-sm uppercase tracking-[0.18em] text-accent">
+                    {user.usage}
+                  </p>
                 </div>
-                <span className="rounded-full border border-brand/10 bg-brand px-3 py-1 font-mono text-[11px] uppercase tracking-[0.22em] text-white">
-                  Placeholder
-                </span>
-              </div>
-
-              <div className="mt-5 space-y-3">
-                {[
-                  ['chat-default', 'OpenAI / Anthropic', '70% / 30%'],
-                  ['reasoning-heavy', 'OpenAI o-series', '单路由'],
-                  ['embedding-default', 'OpenAI embeddings', '单路由'],
-                ].map(([name, target, weight]) => (
-                  <div
-                    key={name}
-                    className="flex items-center justify-between rounded-[20px] border border-line-soft bg-white/70 px-4 py-4"
-                  >
-                    <div>
-                      <p className="font-medium text-ink">{name}</p>
-                      <p className="mt-1 text-sm text-ink-soft">{target}</p>
-                    </div>
-                    <span className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
-                      {weight}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="surface-card rounded-[24px] p-5">
-              <p className="text-sm font-medium text-brand-strong">接入态势</p>
-              <p className="mt-1 text-sm text-ink-soft">以高密度卡片提供后续页面的视觉参考。</p>
-
-              <div className="mt-5 grid gap-3">
-                {[
-                  ['会话认证', '已接入', 'bg-[rgba(18,70,61,0.1)] text-accent'],
-                  ['请求日志', '待接线', 'bg-[rgba(141,77,35,0.1)] text-alert'],
-                  ['计费快照', '已完成', 'bg-[rgba(18,70,61,0.1)] text-accent'],
-                ].map(([label, value, className]) => (
-                  <div
-                    key={label}
-                    className="flex items-center justify-between rounded-[18px] border border-line-soft bg-white/68 px-4 py-3"
-                  >
-                    <span className="text-sm font-medium text-ink">{label}</span>
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${className}`}>
-                      {value}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+              </article>
+            ))}
           </div>
         </section>
-      </section>
 
-      <aside className="surface-panel rounded-[30px] p-6">
-        <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">Feed</p>
-        <h3 className="mt-2 text-2xl font-semibold tracking-tight text-brand-strong">近期事件</h3>
+        <section className="app-surface rounded-[28px] p-6">
+          <h2 className="text-2xl font-semibold tracking-tight text-brand-strong">渠道健康</h2>
+          <p className="mt-2 text-sm leading-6 text-ink-soft">
+            用新状态样式表达主备链路健康情况，后续会接入采样窗口和波动趋势。
+          </p>
 
-        <div className="mt-6 space-y-4">
-          {events.map((event) => (
-            <article key={`${event.time}-${event.title}`} className="surface-card rounded-[22px] p-4">
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-xs uppercase tracking-[0.22em] text-accent">
-                  {event.time}
-                </span>
-                <span className="rounded-full border border-line-soft bg-white/70 px-3 py-1 text-[11px] text-ink-soft">
-                  System
-                </span>
-              </div>
-              <p className="mt-4 text-sm font-medium leading-6 text-ink">{event.title}</p>
-              <p className="mt-2 text-sm leading-6 text-ink-soft">{event.detail}</p>
-            </article>
-          ))}
-        </div>
-      </aside>
+          <div className="mt-5 space-y-3">
+            {channelHealth.map((channel) => (
+              <article key={channel.name} className="app-muted-surface rounded-[22px] px-4 py-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-medium text-ink">{channel.name}</p>
+                    <p className="mt-1 text-sm text-ink-soft">{channel.note}</p>
+                  </div>
+                  <StatusBadge status={channel.status} />
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="app-surface rounded-[28px] p-6">
+          <h2 className="text-2xl font-semibold tracking-tight text-brand-strong">异常提醒</h2>
+          <p className="mt-2 text-sm leading-6 text-ink-soft">
+            这里只放最小空态组件，给后续告警明细、抑制规则和分派动作预留位置。
+          </p>
+
+          <div className="mt-5">
+            <EmptyState
+              title="当前没有新的 P1 告警"
+              description="最近一次高优先级异常已在 09:32 完成恢复。后续会在这里接入告警等级、负责人和处理时长。"
+            />
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

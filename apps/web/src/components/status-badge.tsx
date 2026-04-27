@@ -1,10 +1,10 @@
 type StatusTone = 'success' | 'warning' | 'danger' | 'neutral';
 
 const toneClassName: Record<StatusTone, string> = {
-  success: 'border-brand/15 bg-[rgba(18,70,61,0.12)] text-accent',
-  warning: 'border-alert/15 bg-[rgba(141,77,35,0.12)] text-alert',
-  danger: 'border-alert/20 bg-[rgba(141,77,35,0.16)] text-alert',
-  neutral: 'border-line-soft bg-white/72 text-ink-soft',
+  success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  warning: 'border-amber-200 bg-amber-50 text-amber-700',
+  danger: 'border-rose-200 bg-rose-50 text-rose-700',
+  neutral: 'border-slate-200 bg-slate-50 text-slate-600',
 };
 
 function getTone(status: string) {
