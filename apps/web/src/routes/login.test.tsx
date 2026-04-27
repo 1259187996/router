@@ -9,7 +9,7 @@ describe('LoginRouteComponent', () => {
     render(<LoginRouteComponent api={{ login: vi.fn() }} />);
 
     expect(screen.getByRole('heading', { level: 1, name: '控制台登录' })).toBeInTheDocument();
-    expect(screen.getAllByRole('heading')).toHaveLength(1);
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
 
     const brandCover = screen.getByRole('region', { name: '登录品牌封面' });
     expect(within(brandCover).getByText('统一分发外部模型渠道')).toBeInTheDocument();

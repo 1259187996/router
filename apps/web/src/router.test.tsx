@@ -1,4 +1,5 @@
 import { createMemoryHistory } from '@tanstack/history';
+import { within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { screen, renderRouter } from './test-utils';
 import { createAppRouter } from './router';
@@ -41,10 +42,13 @@ describe('app router auth flow', () => {
 
     renderRouter(router);
 
-    expect(await screen.findByText(/Token 使用总览/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /总览/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /渠道与路由/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Key 与权限/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /请求日志/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: /Token 使用总览/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+
+    const compactNavigation = screen.getByRole('navigation', { name: '移动端控制台导航' });
+    expect(within(compactNavigation).getByRole('link', { name: /总览/i })).toBeInTheDocument();
+    expect(within(compactNavigation).getByRole('link', { name: /渠道与路由/i })).toBeInTheDocument();
+    expect(within(compactNavigation).getByRole('link', { name: /Key 与权限/i })).toBeInTheDocument();
+    expect(within(compactNavigation).getByRole('link', { name: /请求日志/i })).toBeInTheDocument();
   });
 });

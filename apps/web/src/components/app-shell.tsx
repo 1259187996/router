@@ -17,15 +17,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/55">
               Router Console
             </p>
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-white">
+            <p className="mt-3 text-2xl font-semibold tracking-tight text-white">
               LLM 分发与消耗账本
-            </h1>
+            </p>
             <p className="mt-3 text-sm leading-6 text-white/72">
               统一接入外部模型渠道，为团队分发 Key，并追踪 token 消耗。
             </p>
           </div>
 
-          <nav className="mt-6 space-y-2">
+          <nav aria-label="桌面端控制台导航" className="mt-6 space-y-2">
             {navItems.map((item) => (
               <Link
                 key={item.label}
@@ -72,6 +72,37 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </div>
           </header>
+
+          <nav
+            aria-label="移动端控制台导航"
+            className="app-surface flex flex-col gap-3 rounded-[24px] px-4 py-4 lg:hidden"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-brand">
+                Console Routes
+              </p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-ink-soft">
+                4 Entries
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {navItems.map((item) => (
+                <Link
+                  key={item.label}
+                  to={item.to}
+                  activeProps={{
+                    className:
+                      'border-brand/12 bg-brand text-white shadow-[0_16px_32px_-24px_rgba(18,70,61,0.82)]',
+                  }}
+                  activeOptions={{ exact: item.activeOnly }}
+                  className="app-muted-surface block rounded-[20px] border border-transparent px-4 py-3 transition hover:border-line-strong hover:bg-white/70"
+                >
+                  <p className="text-sm font-semibold tracking-[0.01em]">{item.label}</p>
+                  <p className="mt-1 text-sm text-current/68">{item.summary}</p>
+                </Link>
+              ))}
+            </div>
+          </nav>
 
           <main className="min-h-[calc(100vh-8rem)]">{children}</main>
         </div>
