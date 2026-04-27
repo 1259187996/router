@@ -1,11 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { DataTable } from '../components/data-table';
+import { MetricTile } from '../components/metric-tile';
+import { ModalShell } from '../components/modal-shell';
+import { PageHeader } from '../components/page-header';
 import { StatusBadge } from '../components/status-badge';
 import type { AppApi } from '../lib/api-client';
 
 const channelsQueryKey = ['channels'] as const;
 const logicalModelsQueryKey = ['logical-models'] as const;
+const fieldClassName =
+  'mt-2 block w-full rounded-[18px] border border-line-strong bg-white/72 px-4 py-3 text-base text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10';
 
 type ChannelsRouteApi = Pick<
   AppApi,
@@ -64,7 +69,8 @@ function emptyRouteDraft(): RouteDraft {
 
 export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
   const queryClient = useQueryClient();
-  const [isChannelDrawerOpen, setIsChannelDrawerOpen] = useState(false);
+  const [isCreateChannelModalOpen, setIsCreateChannelModalOpen] = useState(false);
+  const [isCreateLogicalModelModalOpen, setIsCreateLogicalModelModalOpen] = useState(false);
   const [channelForm, setChannelForm] = useState({
     name: '',
     baseUrl: '',
@@ -95,7 +101,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
         apiKey: '',
         defaultModelId: '',
       });
-      setIsChannelDrawerOpen(false);
+      setIsCreateChannelModalOpen(false);
       await queryClient.invalidateQueries({ queryKey: channelsQueryKey });
     },
   });
@@ -127,6 +133,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
         description: '',
       });
       setRouteDrafts([emptyRouteDraft()]);
+      setIsCreateLogicalModelModalOpen(false);
       await queryClient.invalidateQueries({ queryKey: logicalModelsQueryKey });
     },
   });
@@ -134,160 +141,215 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
   const channels = channelsQuery.data?.channels ?? [];
   const logicalModels = logicalModelsQuery.data?.logicalModels ?? [];
   const activeChannels = channels.filter((channel) => channel.status === 'active').length;
+  const testedChannels = channels.filter((channel) => channel.lastTestStatus === 'ok').length;
+  const routeCount = logicalModels.reduce((total, logicalModel) => total + logicalModel.routes.length, 0);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_400px]">
-      <section className="space-y-4">
-        <h1 className="sr-only">渠道策略</h1>
-        <div className="grid gap-4 md:grid-cols-3">
-          {[
-            { label: '渠道总数', value: `${channels.length}`.padStart(2, '0'), detail: '接入出口资产' },
-            {
-              label: '活跃渠道',
-              value: `${activeChannels}`.padStart(2, '0'),
-              detail: '当前可用链路',
-            },
-            {
-              label: '逻辑模型',
-              value: `${logicalModels.length}`.padStart(2, '0'),
-              detail: '策略别名映射',
-            },
-          ].map((metric) => (
-            <article key={metric.label} className="app-surface rounded-[28px] p-5">
-              <p className="font-mono text-[11px] uppercase tracking-[0.26em] text-accent">
-                {metric.label}
-              </p>
-              <p className="mt-4 text-4xl font-semibold tracking-tight text-brand-strong">
-                {metric.value}
-              </p>
-              <p className="mt-3 text-sm text-ink-soft">{metric.detail}</p>
-            </article>
-          ))}
-        </div>
-
-        <section className="app-surface rounded-[30px] p-6">
-          <div className="flex flex-col gap-4 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
-                Channels
-              </p>
-              <h3 className="mt-2 text-2xl font-semibold tracking-tight text-brand-strong">
-                渠道策略
-              </h3>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-soft">
-                当前渠道统一按 <span className="font-semibold text-brand-strong">OpenAI-compatible</span>{' '}
-                接入。
-                同一个 Base URL 会根据你实际调用的网关路径，自动转发到
-                <span className="font-mono text-[13px] text-brand-strong"> /v1/chat/completions</span>
-                、
-                <span className="font-mono text-[13px] text-brand-strong"> /v1/embeddings</span>
-                和
-                <span className="font-mono text-[13px] text-brand-strong"> /v1/responses</span>
-                ，不需要再选额外的 API 类型。
-              </p>
-            </div>
+    <div className="space-y-4">
+      <PageHeader
+        eyebrow="Channel Console"
+        title="渠道策略"
+        description="统一管理 OpenAI-compatible 渠道、默认模型与逻辑别名映射，把链路健康、测试结果和价格编排收敛到同一个运营台。"
+        actions={
+          <>
             <button
               type="button"
-              className="rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-strong"
-              onClick={() => setIsChannelDrawerOpen(true)}
+              className="rounded-full border border-white/18 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/18"
+              onClick={() => setIsCreateLogicalModelModalOpen(true)}
+            >
+              新建逻辑模型
+            </button>
+            <button
+              type="button"
+              className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-brand-strong transition hover:bg-white/90"
+              onClick={() => setIsCreateChannelModalOpen(true)}
             >
               新增渠道
             </button>
-          </div>
+          </>
+        }
+        meta={
+          <>
+            <MetricTile
+              label="渠道总数"
+              value={`${channels.length}`.padStart(2, '0')}
+              detail="接入出口资产"
+            />
+            <MetricTile
+              label="活跃渠道"
+              value={`${activeChannels}`.padStart(2, '0')}
+              detail="当前可用链路"
+            />
+            <MetricTile
+              label="测试通过"
+              value={`${testedChannels}`.padStart(2, '0')}
+              detail="最近一次测试成功"
+            />
+            <MetricTile
+              label="逻辑模型"
+              value={`${logicalModels.length}`.padStart(2, '0')}
+              detail="策略别名映射"
+            />
+            <MetricTile
+              label="生效路由"
+              value={`${routeCount}`.padStart(2, '0')}
+              detail="优先级编排条目"
+            />
+            <MetricTile label="接入规范" value="OA" detail="OpenAI-compatible" />
+          </>
+        }
+      />
 
-          <div className="mt-6">
-            <DataTable caption="渠道列表">
-              <thead className="border-b border-line-soft bg-[rgba(18,70,61,0.04)] font-mono text-[11px] uppercase tracking-[0.18em] text-ink-soft">
-                <tr>
-                  <th className="px-4 py-3 font-medium">渠道</th>
-                  <th className="px-4 py-3 font-medium">Base URL</th>
-                  <th className="px-4 py-3 font-medium">默认模型</th>
-                  <th className="px-4 py-3 font-medium">状态</th>
-                  <th className="px-4 py-3 font-medium">最近测试</th>
-                  <th className="px-4 py-3 font-medium text-right">操作</th>
+      <section className="app-surface rounded-[30px] p-6">
+        <div className="flex flex-col gap-4 border-b border-line-soft pb-5 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
+              Channel Matrix
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-brand-strong">
+              渠道列表
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-soft">
+              同一个 Base URL 会根据你实际调用的网关路径，自动转发到
+              <span className="font-mono text-[13px] text-brand-strong"> /v1/chat/completions</span>
+              、
+              <span className="font-mono text-[13px] text-brand-strong"> /v1/embeddings</span>
+              和
+              <span className="font-mono text-[13px] text-brand-strong"> /v1/responses</span>
+              ，因此页面只保留一个统一的 OpenAI-compatible 接入视图。
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <article className="rounded-[22px] border border-line-soft bg-white/72 px-4 py-4">
+              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">Health</p>
+              <p className="mt-3 text-2xl font-semibold tracking-tight text-brand-strong">
+                {`${activeChannels}/${channels.length || 0}`}
+              </p>
+              <p className="mt-2 text-sm text-ink-soft">活跃状态与库存规模同屏观察。</p>
+            </article>
+            <article className="rounded-[22px] border border-line-soft bg-white/72 px-4 py-4">
+              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">
+                Last Checks
+              </p>
+              <p className="mt-3 text-2xl font-semibold tracking-tight text-brand-strong">
+                {`${testedChannels}`.padStart(2, '0')}
+              </p>
+              <p className="mt-2 text-sm text-ink-soft">已通过最近一次健康测试的渠道数量。</p>
+            </article>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <DataTable caption="渠道列表">
+            <thead className="border-b border-line-soft bg-[rgba(18,70,61,0.04)] font-mono text-[11px] uppercase tracking-[0.18em] text-ink-soft">
+              <tr>
+                <th className="px-4 py-3 font-medium">渠道</th>
+                <th className="px-4 py-3 font-medium">Base URL</th>
+                <th className="px-4 py-3 font-medium">默认模型</th>
+                <th className="px-4 py-3 font-medium">状态</th>
+                <th className="px-4 py-3 font-medium">最近测试</th>
+                <th className="px-4 py-3 font-medium text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {channels.map((channel) => (
+                <tr
+                  key={channel.id}
+                  className="border-b border-line-soft/70 last:border-b-0 hover:bg-[rgba(18,70,61,0.03)]"
+                >
+                  <td className="px-4 py-4 align-top">
+                    <p className="font-medium text-ink">{channel.name}</p>
+                    <p className="mt-1 text-xs text-ink-soft">{channel.id}</p>
+                  </td>
+                  <td className="px-4 py-4 align-top font-mono text-xs text-ink-soft">
+                    {channel.baseUrl}
+                  </td>
+                  <td className="px-4 py-4 align-top">
+                    <p className="font-medium text-brand-strong">{channel.defaultModelId}</p>
+                  </td>
+                  <td className="px-4 py-4 align-top">
+                    <StatusBadge
+                      status={channel.status}
+                      label={channel.status === 'active' ? 'active' : 'disabled'}
+                    />
+                  </td>
+                  <td className="px-4 py-4 align-top">
+                    <p className="text-sm font-medium text-ink">
+                      {getTestStatusLabel(channel.lastTestStatus)}
+                    </p>
+                    <p className="mt-1 text-xs text-ink-soft">{formatDateTime(channel.lastTestedAt)}</p>
+                    {channel.lastTestError ? (
+                      <p className="mt-2 text-xs text-alert">{channel.lastTestError}</p>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-4 align-top text-right">
+                    <button
+                      type="button"
+                      className="rounded-full border border-line-strong bg-white px-4 py-2 text-sm font-medium text-brand-strong transition hover:border-brand hover:text-brand"
+                      onClick={() => testChannelMutation.mutate(channel.id)}
+                    >
+                      测试渠道
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {channels.map((channel) => (
-                  <tr
-                    key={channel.id}
-                    className="border-b border-line-soft/70 last:border-b-0 hover:bg-[rgba(18,70,61,0.03)]"
-                  >
-                    <td className="px-4 py-4 align-top">
-                      <p className="font-medium text-ink">{channel.name}</p>
-                      <p className="mt-1 text-xs text-ink-soft">{channel.id}</p>
-                    </td>
-                    <td className="px-4 py-4 align-top font-mono text-xs text-ink-soft">
-                      {channel.baseUrl}
-                    </td>
-                    <td className="px-4 py-4 align-top">
-                      <p className="font-medium text-brand-strong">{channel.defaultModelId}</p>
-                    </td>
-                    <td className="px-4 py-4 align-top">
-                      <StatusBadge status={channel.status} label={channel.status === 'active' ? 'active' : 'disabled'} />
-                    </td>
-                    <td className="px-4 py-4 align-top">
-                      <p className="text-sm font-medium text-ink">
-                        {getTestStatusLabel(channel.lastTestStatus)}
-                      </p>
-                      <p className="mt-1 text-xs text-ink-soft">
-                        {formatDateTime(channel.lastTestedAt)}
-                      </p>
-                      {channel.lastTestError ? (
-                        <p className="mt-2 text-xs text-alert">{channel.lastTestError}</p>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-4 align-top text-right">
-                      <button
-                        type="button"
-                        className="rounded-full border border-line-strong bg-white px-4 py-2 text-sm font-medium text-brand-strong transition hover:border-brand hover:text-brand"
-                        onClick={() => testChannelMutation.mutate(channel.id)}
-                      >
-                        测试渠道
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </DataTable>
-          </div>
-        </section>
+              ))}
+            </tbody>
+          </DataTable>
+        </div>
+      </section>
 
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_320px]">
         <section className="app-surface rounded-[30px] p-6">
-          <div className="flex flex-col gap-3 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex flex-col gap-4 border-b border-line-soft pb-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
-                Logical Models
+                Strategy Registry
               </p>
-              <h3 className="mt-2 text-2xl font-semibold tracking-tight text-brand-strong">
-                逻辑模型与多路由优先级
-              </h3>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-brand-strong">
+                逻辑模型编排
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-soft">
+                以逻辑别名聚合多条路由，便于运营同屏核对渠道、价格、优先级与上游模型。
+              </p>
             </div>
-            <p className="max-w-xl text-sm leading-6 text-ink-soft">
-              现有 routes 在下方直接展开，便于运营同屏对照别名、价格、优先级和上游模型。
-            </p>
+            <div className="rounded-[22px] border border-line-soft bg-white/72 px-4 py-4 text-sm text-ink-soft">
+              新建逻辑模型后，routes 会按优先级直接出现在这里，便于复核编排结果。
+            </div>
           </div>
 
           <div className="mt-6 grid gap-4">
             {logicalModels.map((logicalModel) => (
               <article key={logicalModel.id} className="app-muted-surface rounded-[24px] p-5">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h4 className="text-lg font-semibold text-brand-strong">{logicalModel.alias}</h4>
-                        <StatusBadge status={logicalModel.status} label="active" />
-                      </div>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h3 className="text-lg font-semibold text-brand-strong">{logicalModel.alias}</h3>
+                      <StatusBadge
+                        status={logicalModel.status}
+                        label={logicalModel.status === 'active' ? 'active' : logicalModel.status}
+                      />
+                    </div>
                     <p className="mt-2 text-sm leading-6 text-ink-soft">
                       {getLogicalModelDescription(logicalModel.description)}
                     </p>
                   </div>
-                  <div className="rounded-[20px] border border-line-soft bg-white/70 px-4 py-3 text-right">
-                    <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">
-                      Routes
-                    </p>
-                    <p className="mt-2 text-2xl font-semibold tracking-tight text-brand-strong">
-                      {logicalModel.routes.length}
-                    </p>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[240px]">
+                    <div className="rounded-[20px] border border-line-soft bg-white/80 px-4 py-3">
+                      <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">
+                        Routes
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold tracking-tight text-brand-strong">
+                        {logicalModel.routes.length}
+                      </p>
+                    </div>
+                    <div className="rounded-[20px] border border-line-soft bg-white/80 px-4 py-3">
+                      <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">
+                        Updated
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-ink">
+                        {formatDateTime(logicalModel.updatedAt)}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -295,7 +357,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                   {logicalModel.routes.map((route) => (
                     <div
                       key={route.id}
-                      className="grid gap-3 rounded-[20px] border border-line-soft bg-white/72 px-4 py-4 md:grid-cols-[1.2fr_1fr_0.8fr_0.8fr_0.6fr]"
+                      className="grid gap-3 rounded-[20px] border border-line-soft bg-white/72 px-4 py-4 md:grid-cols-[1.3fr_1fr_0.8fr_0.8fr_0.6fr]"
                     >
                       <div>
                         <p className="text-sm font-medium text-ink">{route.channelName}</p>
@@ -327,133 +389,161 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
             ))}
           </div>
         </section>
-      </section>
 
-      <aside className="space-y-4">
-        {isChannelDrawerOpen ? (
-          <section className="app-surface grid-glow rounded-[30px] p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
-                  Channel Intake
-                </p>
-                <h3 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">
-                  新增渠道
-                </h3>
-              </div>
-              <button
-                type="button"
-                className="rounded-full border border-line-soft px-3 py-2 text-sm text-ink-soft"
-                onClick={() => setIsChannelDrawerOpen(false)}
-              >
-                关闭
-              </button>
-            </div>
-
-            <form
-              className="mt-6 space-y-4"
-              onSubmit={(event) => {
-                event.preventDefault();
-                createChannelMutation.mutate();
-              }}
-            >
-              <label className="block">
-                <span className="text-sm font-medium text-ink">API 类型</span>
-                <div className="mt-2 rounded-[18px] border border-line-soft bg-[rgba(18,70,61,0.05)] px-4 py-3">
-                  <p className="font-medium text-brand-strong">OpenAI-compatible</p>
-                  <p className="mt-1 text-sm leading-6 text-ink-soft">
-                    自动兼容 `chat/completions`、`embeddings`、`responses` 三类常用接口。
-                  </p>
-                </div>
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-ink">渠道名称</span>
-                <input
-                  value={channelForm.name}
-                  onChange={(event) => setChannelForm((current) => ({ ...current, name: event.target.value }))}
-                  className="mt-2 block w-full rounded-[18px] border border-line-strong bg-white/72 px-4 py-3 text-base text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-ink">Base URL</span>
-                <input
-                  value={channelForm.baseUrl}
-                  onChange={(event) =>
-                    setChannelForm((current) => ({ ...current, baseUrl: event.target.value }))
-                  }
-                  className="mt-2 block w-full rounded-[18px] border border-line-strong bg-white/72 px-4 py-3 text-base text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-ink">API Key</span>
-                <input
-                  value={channelForm.apiKey}
-                  onChange={(event) => setChannelForm((current) => ({ ...current, apiKey: event.target.value }))}
-                  className="mt-2 block w-full rounded-[18px] border border-line-strong bg-white/72 px-4 py-3 text-base text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-ink">默认模型</span>
-                <input
-                  value={channelForm.defaultModelId}
-                  onChange={(event) =>
-                    setChannelForm((current) => ({ ...current, defaultModelId: event.target.value }))
-                  }
-                  className="mt-2 block w-full rounded-[18px] border border-line-strong bg-white/72 px-4 py-3 text-base text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
-                />
-              </label>
-
-              <button
-                type="submit"
-                className="w-full rounded-full bg-brand px-5 py-3 text-base font-semibold text-white transition hover:bg-brand-strong"
-              >
-                保存渠道
-              </button>
-            </form>
-          </section>
-        ) : (
+        <aside className="space-y-4">
           <section className="app-surface rounded-[30px] p-6">
-            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">Channel Drawer</p>
-            <h3 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">新增渠道</h3>
-            <p className="mt-3 text-sm leading-6 text-ink-soft">
-              点击左侧按钮展开侧边录入面板，创建新的上游渠道。
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
+              Intake Pattern
             </p>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">录入方式</h2>
+            <div className="mt-5 space-y-3 text-sm leading-6 text-ink-soft">
+              <p>新增渠道和新建逻辑模型都迁移到标准弹窗，避免录入区长期占据页面宽度。</p>
+              <p>主页面专注于状态、表格和编排结果，录入动作按需打开，减少运营切换成本。</p>
+            </div>
           </section>
-        )}
 
-        <section className="app-surface rounded-[30px] p-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">Strategy Editor</p>
-          <h3 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">
-            逻辑模型编辑区
-          </h3>
-          <form
-            className="mt-6 space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              createLogicalModelMutation.mutate();
-            }}
-          >
+          <section className="app-surface rounded-[30px] p-6">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
+              Route Rules
+            </p>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">编排提醒</h2>
+            <div className="mt-5 grid gap-3">
+              {[
+                ['统一接入', '渠道默认按 OpenAI-compatible 能力接入，不再拆分 API 类型。'],
+                ['多路优先级', '一个逻辑模型可挂多条 route，优先级越大越靠前。'],
+                ['价格复核', '录入时保持输入与输出价格成对更新，便于后续费用解释。'],
+              ].map(([label, detail]) => (
+                <article key={label} className="app-muted-surface rounded-[22px] p-4">
+                  <p className="font-medium text-ink">{label}</p>
+                  <p className="mt-2 text-sm leading-6 text-ink-soft">{detail}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <ModalShell
+        open={isCreateChannelModalOpen}
+        onClose={() => setIsCreateChannelModalOpen(false)}
+        eyebrow="Channel Intake"
+        title="新增渠道"
+        description="补充上游出口的基础信息，页面会继续沿用统一的 OpenAI-compatible 接入语义。"
+      >
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            createChannelMutation.mutate();
+          }}
+        >
+          <label className="block">
+            <span className="text-sm font-medium text-ink">API 类型</span>
+            <div className="mt-2 rounded-[18px] border border-line-soft bg-[rgba(18,70,61,0.05)] px-4 py-3">
+              <p className="font-medium text-brand-strong">OpenAI-compatible</p>
+              <p className="mt-1 text-sm leading-6 text-ink-soft">
+                自动兼容 `chat/completions`、`embeddings`、`responses` 三类常用接口。
+              </p>
+            </div>
+          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className="text-sm font-medium text-ink">逻辑模型别名</span>
+              <span className="text-sm font-medium text-ink">渠道名称</span>
               <input
-                value={logicalModelForm.alias}
-                onChange={(event) =>
-                  setLogicalModelForm((current) => ({ ...current, alias: event.target.value }))
-                }
-                className="mt-2 block w-full rounded-[18px] border border-line-strong bg-white/72 px-4 py-3 text-base text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
+                value={channelForm.name}
+                onChange={(event) => setChannelForm((current) => ({ ...current, name: event.target.value }))}
+                className={fieldClassName}
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-ink">说明</span>
-              <textarea
-                value={logicalModelForm.description}
+              <span className="text-sm font-medium text-ink">默认模型</span>
+              <input
+                value={channelForm.defaultModelId}
                 onChange={(event) =>
-                  setLogicalModelForm((current) => ({ ...current, description: event.target.value }))
+                  setChannelForm((current) => ({ ...current, defaultModelId: event.target.value }))
                 }
-                rows={3}
-                className="mt-2 block w-full rounded-[18px] border border-line-strong bg-white/72 px-4 py-3 text-base text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
+                className={fieldClassName}
               />
             </label>
+          </div>
+          <label className="block">
+            <span className="text-sm font-medium text-ink">Base URL</span>
+            <input
+              value={channelForm.baseUrl}
+              onChange={(event) => setChannelForm((current) => ({ ...current, baseUrl: event.target.value }))}
+              className={fieldClassName}
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-ink">API Key</span>
+            <input
+              value={channelForm.apiKey}
+              onChange={(event) => setChannelForm((current) => ({ ...current, apiKey: event.target.value }))}
+              className={fieldClassName}
+            />
+          </label>
+
+          <div className="flex flex-col-reverse gap-3 border-t border-line-soft pt-5 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              className="rounded-full border border-line-strong bg-white px-5 py-3 text-sm font-medium text-brand-strong transition hover:border-brand hover:text-brand"
+              onClick={() => setIsCreateChannelModalOpen(false)}
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              className="rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-strong"
+            >
+              保存渠道
+            </button>
+          </div>
+        </form>
+      </ModalShell>
+
+      <ModalShell
+        open={isCreateLogicalModelModalOpen}
+        onClose={() => setIsCreateLogicalModelModalOpen(false)}
+        eyebrow="Strategy Composer"
+        title="新建逻辑模型"
+        description="为逻辑别名补充说明并录入 routes，保持与当前后端数据结构一致。"
+        size="xl"
+      >
+        <form
+          className="space-y-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            createLogicalModelMutation.mutate();
+          }}
+        >
+          <div className="grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
+            <div className="space-y-4">
+              <label className="block">
+                <span className="text-sm font-medium text-ink">逻辑模型别名</span>
+                <input
+                  value={logicalModelForm.alias}
+                  onChange={(event) =>
+                    setLogicalModelForm((current) => ({ ...current, alias: event.target.value }))
+                  }
+                  className={fieldClassName}
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-ink">说明</span>
+                <textarea
+                  value={logicalModelForm.description}
+                  onChange={(event) =>
+                    setLogicalModelForm((current) => ({ ...current, description: event.target.value }))
+                  }
+                  rows={5}
+                  className={fieldClassName}
+                />
+              </label>
+              <div className="rounded-[22px] border border-line-soft bg-[rgba(18,70,61,0.04)] p-4 text-sm leading-6 text-ink-soft">
+                <p className="font-medium text-brand-strong">录入提醒</p>
+                <p className="mt-2">一个逻辑模型可以挂多条 route；运营台会按优先级展示这些编排结果。</p>
+              </div>
+            </div>
 
             <div className="space-y-4">
               {routeDrafts.map((route, index) => (
@@ -470,7 +560,9 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                         type="button"
                         className="text-sm text-alert"
                         onClick={() =>
-                          setRouteDrafts((current) => current.filter((_, routeIndex) => routeIndex !== index))
+                          setRouteDrafts((current) =>
+                            current.filter((_, routeIndex) => routeIndex !== index),
+                          )
                         }
                       >
                         删除
@@ -486,11 +578,11 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                         onChange={(event) =>
                           setRouteDrafts((current) =>
                             current.map((item, routeIndex) =>
-                              routeIndex === index ? { ...item, channelId: event.target.value } : item
-                            )
+                              routeIndex === index ? { ...item, channelId: event.target.value } : item,
+                            ),
                           )
                         }
-                        className="mt-2 block w-full rounded-[18px] border border-line-strong bg-white/72 px-4 py-3 text-base text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
+                        className={fieldClassName}
                       >
                         <option value="">选择渠道</option>
                         {channels.map((channel) => (
@@ -509,11 +601,11 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                             current.map((item, routeIndex) =>
                               routeIndex === index
                                 ? { ...item, upstreamModelId: event.target.value }
-                                : item
-                            )
+                                : item,
+                            ),
                           )
                         }
-                        className="mt-2 block w-full rounded-[18px] border border-line-strong bg-white/72 px-4 py-3 text-base text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
+                        className={fieldClassName}
                       />
                     </label>
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -526,11 +618,11 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                               current.map((item, routeIndex) =>
                                 routeIndex === index
                                   ? { ...item, inputPricePer1m: event.target.value }
-                                  : item
-                              )
+                                  : item,
+                              ),
                             )
                           }
-                          className="mt-2 block w-full rounded-[18px] border border-line-strong bg-white/72 px-4 py-3 text-base text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
+                          className={fieldClassName}
                         />
                       </label>
                       <label className="block">
@@ -542,11 +634,11 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                               current.map((item, routeIndex) =>
                                 routeIndex === index
                                   ? { ...item, outputPricePer1m: event.target.value }
-                                  : item
-                              )
+                                  : item,
+                              ),
                             )
                           }
-                          className="mt-2 block w-full rounded-[18px] border border-line-strong bg-white/72 px-4 py-3 text-base text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
+                          className={fieldClassName}
                         />
                       </label>
                     </div>
@@ -558,11 +650,11 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                           onChange={(event) =>
                             setRouteDrafts((current) =>
                               current.map((item, routeIndex) =>
-                                routeIndex === index ? { ...item, currency: event.target.value } : item
-                              )
+                                routeIndex === index ? { ...item, currency: event.target.value } : item,
+                              ),
                             )
                           }
-                          className="mt-2 block w-full rounded-[18px] border border-line-strong bg-white/72 px-4 py-3 text-base text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
+                          className={fieldClassName}
                         />
                       </label>
                       <label className="block">
@@ -572,11 +664,11 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                           onChange={(event) =>
                             setRouteDrafts((current) =>
                               current.map((item, routeIndex) =>
-                                routeIndex === index ? { ...item, priority: event.target.value } : item
-                              )
+                                routeIndex === index ? { ...item, priority: event.target.value } : item,
+                              ),
                             )
                           }
-                          className="mt-2 block w-full rounded-[18px] border border-line-strong bg-white/72 px-4 py-3 text-base text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
+                          className={fieldClassName}
                         />
                       </label>
                     </div>
@@ -584,7 +676,9 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                 </div>
               ))}
             </div>
+          </div>
 
+          <div className="flex flex-col gap-3 border-t border-line-soft pt-5 sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"
               className="rounded-full border border-line-strong bg-white px-4 py-2 text-sm font-medium text-brand-strong transition hover:border-brand hover:text-brand"
@@ -592,16 +686,24 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
             >
               添加路由
             </button>
-
-            <button
-              type="submit"
-              className="w-full rounded-full bg-brand px-5 py-3 text-base font-semibold text-white transition hover:bg-brand-strong"
-            >
-              保存逻辑模型
-            </button>
-          </form>
-        </section>
-      </aside>
+            <div className="flex flex-col-reverse gap-3 sm:flex-row">
+              <button
+                type="button"
+                className="rounded-full border border-line-strong bg-white px-5 py-3 text-sm font-medium text-brand-strong transition hover:border-brand hover:text-brand"
+                onClick={() => setIsCreateLogicalModelModalOpen(false)}
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                className="rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-strong"
+              >
+                保存逻辑模型
+              </button>
+            </div>
+          </div>
+        </form>
+      </ModalShell>
     </div>
   );
 }

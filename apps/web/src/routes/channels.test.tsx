@@ -114,11 +114,15 @@ describe('ChannelsRouteComponent', () => {
     expect((await screen.findAllByText('gpt-4o')).length).toBeGreaterThan(0);
 
     await userEvent.click(screen.getByRole('button', { name: '新增渠道' }));
-    await userEvent.type(screen.getByLabelText('渠道名称'), 'Anthropic 备链');
-    await userEvent.type(screen.getByLabelText('Base URL'), 'https://api.anthropic.com/v1');
-    await userEvent.type(screen.getByLabelText('API Key'), 'sk-ant');
-    await userEvent.type(screen.getByLabelText('默认模型'), 'claude-3-7-sonnet');
-    await userEvent.click(screen.getByRole('button', { name: '保存渠道' }));
+    const createChannelDialog = await screen.findByRole('dialog', { name: '新增渠道' });
+    await userEvent.type(within(createChannelDialog).getByLabelText('渠道名称'), 'Anthropic 备链');
+    await userEvent.type(
+      within(createChannelDialog).getByLabelText('Base URL'),
+      'https://api.anthropic.com/v1',
+    );
+    await userEvent.type(within(createChannelDialog).getByLabelText('API Key'), 'sk-ant');
+    await userEvent.type(within(createChannelDialog).getByLabelText('默认模型'), 'claude-3-7-sonnet');
+    await userEvent.click(within(createChannelDialog).getByRole('button', { name: '保存渠道' }));
 
     await waitFor(() => {
       expect(api.createChannel).toHaveBeenCalledWith({
@@ -138,20 +142,24 @@ describe('ChannelsRouteComponent', () => {
     });
     expect(await screen.findByText('最近测试通过')).toBeInTheDocument();
 
-    await userEvent.type(screen.getByLabelText('逻辑模型别名'), 'analysis-default');
-    await userEvent.type(screen.getByLabelText('说明'), '分析任务优先走 OpenAI');
-    await userEvent.selectOptions(screen.getByLabelText('关联渠道'), 'channel-1');
-    await userEvent.clear(screen.getByLabelText('上游模型'));
-    await userEvent.type(screen.getByLabelText('上游模型'), 'o4-mini');
-    await userEvent.clear(screen.getByLabelText('输入价格'));
-    await userEvent.type(screen.getByLabelText('输入价格'), '1.2000');
-    await userEvent.clear(screen.getByLabelText('输出价格'));
-    await userEvent.type(screen.getByLabelText('输出价格'), '4.8000');
-    await userEvent.clear(screen.getByLabelText('币种'));
-    await userEvent.type(screen.getByLabelText('币种'), 'USD');
-    await userEvent.clear(screen.getByLabelText('优先级'));
-    await userEvent.type(screen.getByLabelText('优先级'), '5');
-    await userEvent.click(screen.getByRole('button', { name: '保存逻辑模型' }));
+    await userEvent.click(screen.getByRole('button', { name: '新建逻辑模型' }));
+    const createLogicalModelDialog = await screen.findByRole('dialog', { name: '新建逻辑模型' });
+    await userEvent.type(within(createLogicalModelDialog).getByLabelText('逻辑模型别名'), 'analysis-default');
+    await userEvent.type(within(createLogicalModelDialog).getByLabelText('说明'), '分析任务优先走 OpenAI');
+    await userEvent.selectOptions(within(createLogicalModelDialog).getByLabelText('关联渠道'), 'channel-1');
+    await userEvent.clear(within(createLogicalModelDialog).getByLabelText('上游模型'));
+    await userEvent.type(within(createLogicalModelDialog).getByLabelText('上游模型'), 'o4-mini');
+    await userEvent.clear(within(createLogicalModelDialog).getByLabelText('输入价格'));
+    await userEvent.type(within(createLogicalModelDialog).getByLabelText('输入价格'), '1.2000');
+    await userEvent.clear(within(createLogicalModelDialog).getByLabelText('输出价格'));
+    await userEvent.type(within(createLogicalModelDialog).getByLabelText('输出价格'), '4.8000');
+    await userEvent.clear(within(createLogicalModelDialog).getByLabelText('币种'));
+    await userEvent.type(within(createLogicalModelDialog).getByLabelText('币种'), 'USD');
+    await userEvent.clear(within(createLogicalModelDialog).getByLabelText('优先级'));
+    await userEvent.type(within(createLogicalModelDialog).getByLabelText('优先级'), '5');
+    await userEvent.click(
+      within(createLogicalModelDialog).getByRole('button', { name: '保存逻辑模型' }),
+    );
 
     await waitFor(() => {
       expect(api.createLogicalModel).toHaveBeenCalledWith({
