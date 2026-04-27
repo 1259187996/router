@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import { MetricTile } from '../components/metric-tile';
 import { PageHeader } from '../components/page-header';
 
@@ -19,8 +20,8 @@ const overviewMetrics = [
   },
   {
     label: '渠道健康',
-    value: '5 / 6',
-    detail: '核心通道稳定，1 条备用链路延迟偏高且重试率上升。',
+    value: '3 / 4',
+    detail: '摘要视图覆盖 4 条关键链路，其中 1 条推理链路延迟偏高，需要优先处理。',
   },
 ];
 
@@ -31,7 +32,7 @@ const tokenBreakdown = [
 ];
 
 const summarySignals = [
-  { label: '需要关注的账户数', value: '7', detail: '其中 3 个账户预算将在 48 小时内触顶。 ' },
+  { label: '需要关注的账户数', value: '7', detail: '首页当前展开优先级最高的 3 个账户，其余仍在预算列表中跟踪。' },
   { label: '高风险渠道', value: '1', detail: '备用聚合网关最近 6 小时延迟明显抬升。' },
   { label: '今日峰值时段', value: '10:00 - 12:00', detail: '知识检索与报告生成任务叠加，拉高输入 token。' },
 ];
@@ -51,12 +52,19 @@ const topKeys = [
 ];
 
 const watchedAccounts = [
-  { name: '增长分析组', reason: '预算使用 86%', action: '建议今日内补充预算或限流。 ' },
+  { name: '增长分析组', reason: '预算使用 86%', action: '建议今日内补充预算或限流。' },
   { name: '法务审阅流', reason: '长上下文任务增多', action: '建议复核 prompt 模板和摘要策略。' },
   { name: '客服 Copilot', reason: '输出 token 偏高', action: '建议排查响应长度配置与系统词。' },
 ];
 
-const channelHealth = [
+type ChannelHealthTone = 'success' | 'warning' | 'danger';
+
+const channelHealth: Array<{
+  name: string;
+  status: string;
+  summary: string;
+  tone: ChannelHealthTone;
+}> = [
   {
     name: '华东主通道',
     status: '稳定',
@@ -65,9 +73,9 @@ const channelHealth = [
   },
   {
     name: '国际备用通道',
-    status: '观察中',
-    summary: '成功率 97.8%，重试率升至 3.1%。',
-    tone: 'warning',
+    status: '稳定',
+    summary: '成功率 98.9%，偶发重试已回落到团队阈值以内。',
+    tone: 'success',
   },
   {
     name: '嵌入服务',
@@ -104,22 +112,22 @@ const alerts = [
 const shortcutActions = [
   {
     label: '查看 Key 与权限',
-    href: '/tokens',
+    to: '/tokens' as const,
     detail: '补充预算、吊销异常 Key，核查逻辑模型绑定。',
   },
   {
     label: '巡检渠道与路由',
-    href: '/channels',
+    to: '/channels' as const,
     detail: '检查通道状态、测试上游健康，并调整优先级。',
   },
   {
     label: '排查请求日志',
-    href: '/logs',
+    to: '/logs' as const,
     detail: '按用户、模型和状态筛查异常请求与账单波动。',
   },
 ];
 
-function getStatusClassName(tone: 'success' | 'warning' | 'danger') {
+function getStatusClassName(tone: ChannelHealthTone) {
   if (tone === 'success') {
     return 'app-status-badge--success';
   }
@@ -322,6 +330,9 @@ export function IndexRouteComponent() {
           <div className="border-b border-line-soft pb-5">
             <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">Watchlist</p>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-brand-strong">需要关注的账户</h2>
+            <p className="mt-2 text-sm leading-6 text-ink-soft">
+              当前优先展开 3 个需要立即跟进的账户，剩余 4 个账户继续在预算与异常列表中追踪。
+            </p>
           </div>
 
           <div className="mt-5 space-y-3">
@@ -347,15 +358,15 @@ export function IndexRouteComponent() {
 
           <div className="mt-5 space-y-3">
             {shortcutActions.map((item) => (
-              <a
+              <Link
                 key={item.label}
-                href={item.href}
+                to={item.to}
                 aria-label={item.label}
                 className="app-muted-surface block rounded-[22px] p-4 transition hover:border-line-strong hover:bg-white"
               >
                 <p className="text-base font-semibold tracking-tight text-brand-strong">{item.label}</p>
                 <p className="mt-2 text-sm leading-6 text-ink-soft">{item.detail}</p>
-              </a>
+              </Link>
             ))}
           </div>
         </section>
