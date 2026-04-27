@@ -122,7 +122,8 @@ export function DrawerShell({
         onClick={onClose}
       />
       <div
-        role="complementary"
+        role="dialog"
+        aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}

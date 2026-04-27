@@ -60,16 +60,6 @@ function getBudgetStatusLabel(status: TokenRecord['budgetStatus']) {
   return status;
 }
 
-function getExpiryStatusTokens(tokens: TokenRecord[]) {
-  return tokens.filter((token) => {
-    if (!token.expiresAt) {
-      return false;
-    }
-
-    return new Date(token.expiresAt).getTime() < Date.now();
-  }).length;
-}
-
 export function TokensRouteComponent({ api }: { api: TokensRouteApi }) {
   const queryClient = useQueryClient();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -127,7 +117,7 @@ export function TokensRouteComponent({ api }: { api: TokensRouteApi }) {
   const selectedToken = tokens.find((token) => token.id === selectedTokenId) ?? null;
   const activeTokensCount = tokens.filter((token) => token.status === 'active').length;
   const budgetLimitedTokensCount = tokens.filter((token) => token.budgetLimitUsd !== '0.00').length;
-  const expiredTokensCount = getExpiryStatusTokens(tokens);
+  const expiredTokensCount = tokens.filter((token) => token.status === 'expired').length;
   const selectedTokenModelAlias = selectedToken
     ? logicalModelAliasById.get(selectedToken.logicalModelId) ?? selectedToken.logicalModelId
     : null;

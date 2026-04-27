@@ -20,6 +20,19 @@ describe('TokensRouteComponent', () => {
         createdAt: '2026-04-24T00:00:00.000Z',
         updatedAt: '2026-04-24T00:00:00.000Z',
       },
+      {
+        id: 'token-archived',
+        name: '旧版 SDK',
+        logicalModelId: 'model-2',
+        budgetLimitUsd: '12.00',
+        budgetUsedUsd: '12.00',
+        budgetStatus: 'exhausted' as const,
+        status: 'expired' as const,
+        expiresAt: '2027-01-01T00:00:00.000Z',
+        lastUsedAt: '2026-04-23T09:00:00.000Z',
+        createdAt: '2026-04-20T00:00:00.000Z',
+        updatedAt: '2026-04-23T09:00:00.000Z',
+      },
     ];
     const logicalModels: LogicalModelRecord[] = [
       {
@@ -80,6 +93,7 @@ describe('TokensRouteComponent', () => {
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(await screen.findByText('SDK 生产')).toBeInTheDocument();
     expect(await screen.findByText('chat-default')).toBeInTheDocument();
+    expect(screen.getByText('已过期 01 个')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: '新建令牌' }));
     expect(await screen.findByRole('dialog', { name: '新建令牌' })).toBeInTheDocument();
@@ -97,13 +111,29 @@ describe('TokensRouteComponent', () => {
         expiresAt: '2026-10-01T00:30:00.000Z',
       });
     });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: '新建令牌' })).not.toBeInTheDocument();
+    });
     expect(await screen.findByText('rt_visible_once')).toBeInTheDocument();
-    expect(screen.getByText('analysis-default')).toBeInTheDocument();
+    expect(screen.getByText('当前会话中最近一次创建结果')).toBeInTheDocument();
+    const createdTokenRow = screen.getByRole('row', { name: /分析 SDK/i });
+    expect(within(createdTokenRow).getByText('analysis-default')).toBeInTheDocument();
 
     const tokenRow = screen.getByRole('row', { name: /SDK 生产/i });
-    await userEvent.click(within(tokenRow).getByRole('button', { name: '查看 SDK 生产 详情' }));
-    const detailsDrawer = await screen.findByRole('complementary', { name: '令牌详情' });
+    const detailsTrigger = within(tokenRow).getByRole('button', { name: '查看 SDK 生产 详情' });
+    await userEvent.click(detailsTrigger);
+    const detailsDrawer = await screen.findByRole('dialog', { name: '令牌详情' });
+    expect(within(detailsDrawer).getByRole('heading', { level: 2, name: '令牌详情' })).toBeInTheDocument();
+    expect(within(detailsDrawer).getByRole('heading', { level: 3, name: 'SDK 生产' })).toBeInTheDocument();
     expect(within(detailsDrawer).getByText('chat-default')).toBeInTheDocument();
+    expect(within(detailsDrawer).getByText('$32.10 / $100.00')).toBeInTheDocument();
+    expect(within(detailsDrawer).getByText('model-1')).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: '令牌详情' })).not.toBeInTheDocument();
+    });
+    expect(detailsTrigger).toHaveFocus();
+
     await userEvent.click(within(tokenRow).getByRole('button', { name: '吊销' }));
 
     await waitFor(() => {
