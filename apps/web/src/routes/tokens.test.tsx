@@ -82,6 +82,7 @@ describe('TokensRouteComponent', () => {
     expect(await screen.findByText('chat-default')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: '新建令牌' }));
+    expect(await screen.findByRole('dialog', { name: '新建令牌' })).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('令牌名称'), '分析 SDK');
     await userEvent.selectOptions(screen.getByLabelText('逻辑模型'), 'model-2');
     await userEvent.type(screen.getByLabelText('预算上限'), '25.00');
@@ -100,6 +101,9 @@ describe('TokensRouteComponent', () => {
     expect(screen.getByText('analysis-default')).toBeInTheDocument();
 
     const tokenRow = screen.getByRole('row', { name: /SDK 生产/i });
+    await userEvent.click(within(tokenRow).getByRole('button', { name: '查看 SDK 生产 详情' }));
+    const detailsDrawer = await screen.findByRole('complementary', { name: '令牌详情' });
+    expect(within(detailsDrawer).getByText('chat-default')).toBeInTheDocument();
     await userEvent.click(within(tokenRow).getByRole('button', { name: '吊销' }));
 
     await waitFor(() => {
@@ -121,6 +125,7 @@ describe('TokensRouteComponent', () => {
     expect(await screen.findByRole('heading', { level: 1, name: '令牌管理' })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole('button', { name: '新建令牌' }));
 
+    expect(await screen.findByRole('dialog', { name: '新建令牌' })).toBeInTheDocument();
     expect(await screen.findByText(/还没有可绑定的逻辑模型/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '创建令牌' })).toBeDisabled();
   });
