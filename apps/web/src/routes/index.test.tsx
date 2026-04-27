@@ -10,5 +10,7 @@ describe('IndexRouteComponent', () => {
     expect(screen.getByText('高消耗用户')).toBeInTheDocument();
     expect(screen.getByText('渠道健康')).toBeInTheDocument();
     expect(screen.getByText('异常提醒')).toBeInTheDocument();
+    expect(screen.queryByText('search-batch')).not.toBeInTheDocument();
+    expect(screen.queryByText(/后续 Task 3/i)).not.toBeInTheDocument();
   });
 });
