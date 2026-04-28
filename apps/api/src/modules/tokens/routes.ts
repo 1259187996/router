@@ -1,6 +1,6 @@
 import { ZodError } from 'zod';
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import { createTokenSchema, tokenIdSchema } from './schema.js';
+import { createTokenSchema, tokenIdSchema, updateTokenSchema } from './schema.js';
 import { TokenService, TokenServiceError, type PublicTokenResponse } from './service.js';
 
 function sendRouteError(error: unknown, reply: FastifyReply) {
@@ -58,13 +58,52 @@ export async function registerTokenRoutes(fastify: FastifyInstance, tokenService
     }
   });
 
+  fastify.get(
+    '/internal/tokens/:tokenId',
+    { preHandler: [fastify.requireSession] },
+    async (request, reply) => {
+      try {
+        const params = tokenIdSchema.parse(request.params);
+        const token = await tokenService.getToken(request.currentUser!.id, params.tokenId);
+
+        reply.send({
+          token: toTokenResponse(token)
+        });
+      } catch (error) {
+        sendRouteError(error, reply);
+      }
+    }
+  );
+
+  fastify.patch(
+    '/internal/tokens/:tokenId',
+    { preHandler: [fastify.requireSession] },
+    async (request, reply) => {
+      try {
+        const params = tokenIdSchema.parse(request.params);
+        const body = updateTokenSchema.parse(request.body);
+        const token = await tokenService.updateToken(
+          request.currentUser!.id,
+          params.tokenId,
+          body
+        );
+
+        reply.send({
+          token: toTokenResponse(token)
+        });
+      } catch (error) {
+        sendRouteError(error, reply);
+      }
+    }
+  );
+
   fastify.delete(
     '/internal/tokens/:tokenId',
     { preHandler: [fastify.requireSession] },
     async (request, reply) => {
       try {
         const params = tokenIdSchema.parse(request.params);
-        await tokenService.revokeToken(request.currentUser!.id, params.tokenId);
+        await tokenService.deleteToken(request.currentUser!.id, params.tokenId);
         reply.status(204).send();
       } catch (error) {
         sendRouteError(error, reply);

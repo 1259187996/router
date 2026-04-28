@@ -1,4 +1,13 @@
-import type { CreateChannelInput, CreateLogicalModelInput } from './schema.js';
+import type {
+  ChannelModelInput,
+  CreateChannelInput,
+  CreateLogicalModelInput,
+  LogicalModelRouteInput,
+  PreparedLogicalModelRouteInput,
+  UpdateChannelInput,
+  UpdateChannelModelInput,
+  UpdateLogicalModelInput
+} from './schema.js';
 import { testOpenAiCompatibleChannel } from './provider-test.js';
 import { ChannelsRepository } from './repository.js';
 import { decryptChannelSecret, encryptChannelSecret } from './secret.js';
@@ -12,8 +21,10 @@ import {
 
 export type ChannelsServiceErrorCode =
   | 'CHANNEL_NOT_FOUND'
+  | 'CHANNEL_MODEL_NOT_FOUND'
   | 'INVALID_ROUTE_CHANNEL'
   | 'LOGICAL_MODEL_ALIAS_EXISTS'
+  | 'LOGICAL_MODEL_NOT_FOUND'
   | 'CHANNEL_TEST_FAILED'
   | 'INVALID_CHANNEL_BASE_URL'
   | 'UNSAFE_CHANNEL_BASE_URL';
@@ -52,6 +63,102 @@ export class ChannelsService {
       ...input,
       apiKey: encryptChannelSecret(input.apiKey, this.options.channelKeyEncryptionSecret)
     });
+  }
+
+  async updateChannel(userId: string, channelId: string, input: UpdateChannelInput) {
+    if (input.baseUrl !== undefined) {
+      try {
+        parseSupportedUpstreamBaseUrl(input.baseUrl);
+      } catch (error) {
+        if (error instanceof ChannelBaseUrlValidationError) {
+          throw new ChannelsServiceError(error.code);
+        }
+
+        throw error;
+      }
+    }
+
+    const channel = await this.repository.updateChannelByIdAndUserId(channelId, userId, {
+      ...input,
+      ...(input.apiKey
+        ? {
+            apiKeyEncrypted: encryptChannelSecret(
+              input.apiKey,
+              this.options.channelKeyEncryptionSecret
+            )
+          }
+        : {})
+    });
+
+    if (!channel) {
+      throw new ChannelsServiceError('CHANNEL_NOT_FOUND');
+    }
+
+    return channel;
+  }
+
+  async disableChannel(userId: string, channelId: string) {
+    const channel = await this.repository.disableChannelByIdAndUserId(channelId, userId);
+
+    if (!channel) {
+      throw new ChannelsServiceError('CHANNEL_NOT_FOUND');
+    }
+  }
+
+  async getChannelDetail(userId: string, channelId: string) {
+    const channel = await this.repository.findChannelByIdAndUserId(channelId, userId);
+
+    if (!channel) {
+      throw new ChannelsServiceError('CHANNEL_NOT_FOUND');
+    }
+
+    return {
+      channel,
+      models: await this.repository.listChannelModelsByChannelIdAndUserId(userId, channelId),
+      logicalModels: await this.listLogicalModels(userId, channelId)
+    };
+  }
+
+  async createChannelModel(userId: string, channelId: string, input: ChannelModelInput) {
+    const channel = await this.repository.findChannelByIdAndUserId(channelId, userId);
+
+    if (!channel) {
+      throw new ChannelsServiceError('CHANNEL_NOT_FOUND');
+    }
+
+    return this.repository.createChannelModel(userId, channelId, input);
+  }
+
+  async updateChannelModel(
+    userId: string,
+    channelId: string,
+    modelId: string,
+    input: UpdateChannelModelInput
+  ) {
+    const model = await this.repository.updateChannelModelByIdAndUserId(
+      userId,
+      channelId,
+      modelId,
+      input
+    );
+
+    if (!model) {
+      throw new ChannelsServiceError('CHANNEL_MODEL_NOT_FOUND');
+    }
+
+    return model;
+  }
+
+  async disableChannelModel(userId: string, channelId: string, modelId: string) {
+    const model = await this.repository.disableChannelModelByIdAndUserId(
+      userId,
+      channelId,
+      modelId
+    );
+
+    if (!model) {
+      throw new ChannelsServiceError('CHANNEL_MODEL_NOT_FOUND');
+    }
   }
 
   async testChannel(userId: string, channelId: string) {
@@ -129,21 +236,19 @@ export class ChannelsService {
   }
 
   async createLogicalModel(userId: string, input: CreateLogicalModelInput) {
-    const channelIds = [...new Set(input.routes.map((route) => route.channelId))];
-    const ownedChannelIds = await this.repository.findOwnedChannelIds(userId, channelIds);
-
-    if (ownedChannelIds.length !== channelIds.length) {
-      throw new ChannelsServiceError('INVALID_ROUTE_CHANNEL');
-    }
-
     const existingLogicalModel = await this.repository.findActiveLogicalModelByAlias(userId, input.alias);
 
     if (existingLogicalModel) {
       throw new ChannelsServiceError('LOGICAL_MODEL_ALIAS_EXISTS');
     }
 
+    const routes = await this.prepareLogicalModelRoutes(userId, input.routes);
+
     try {
-      return await this.repository.createLogicalModelWithRoutes(userId, input);
+      return await this.repository.createLogicalModelWithRoutes(userId, {
+        ...input,
+        routes
+      });
     } catch (error) {
       if (this.repository.isActiveLogicalModelAliasConflict(error)) {
         throw new ChannelsServiceError('LOGICAL_MODEL_ALIAS_EXISTS');
@@ -153,12 +258,67 @@ export class ChannelsService {
     }
   }
 
+  async updateLogicalModel(userId: string, logicalModelId: string, input: UpdateLogicalModelInput) {
+    const logicalModel = await this.repository.findLogicalModelByIdAndUserId(userId, logicalModelId);
+
+    if (!logicalModel) {
+      throw new ChannelsServiceError('LOGICAL_MODEL_NOT_FOUND');
+    }
+
+    if (input.alias && input.alias !== logicalModel.alias) {
+      const existingLogicalModel = await this.repository.findActiveLogicalModelByAlias(
+        userId,
+        input.alias
+      );
+
+      if (existingLogicalModel && existingLogicalModel.id !== logicalModelId) {
+        throw new ChannelsServiceError('LOGICAL_MODEL_ALIAS_EXISTS');
+      }
+    }
+
+    const routes = input.routes
+      ? await this.prepareLogicalModelRoutes(userId, input.routes)
+      : undefined;
+
+    try {
+      const result = await this.repository.updateLogicalModelWithRoutes(userId, logicalModelId, {
+        ...input,
+        routes
+      });
+
+      if (!result) {
+        throw new ChannelsServiceError('LOGICAL_MODEL_NOT_FOUND');
+      }
+
+      return result;
+    } catch (error) {
+      if (this.repository.isActiveLogicalModelAliasConflict(error)) {
+        throw new ChannelsServiceError('LOGICAL_MODEL_ALIAS_EXISTS');
+      }
+
+      throw error;
+    }
+  }
+
+  async disableLogicalModel(userId: string, logicalModelId: string) {
+    const logicalModel = await this.repository.disableLogicalModelByIdAndUserId(
+      userId,
+      logicalModelId
+    );
+
+    if (!logicalModel) {
+      throw new ChannelsServiceError('LOGICAL_MODEL_NOT_FOUND');
+    }
+  }
+
   async listChannels(userId: string) {
     return this.repository.listChannelsByUserId(userId);
   }
 
-  async listLogicalModels(userId: string) {
-    const rows = await this.repository.listLogicalModelsByUserId(userId);
+  async listLogicalModels(userId: string, channelId?: string) {
+    const rows = channelId
+      ? await this.repository.listLogicalModelsByChannelIdAndUserId(userId, channelId)
+      : await this.repository.listLogicalModelsByUserId(userId);
     const logicalModels = new Map<
       string,
       {
@@ -168,9 +328,10 @@ export class ChannelsService {
         status: 'active' | 'disabled';
         createdAt: Date;
         updatedAt: Date;
-        routes: Array<{
+          routes: Array<{
           id: string;
           channelId: string;
+          channelModelId?: string | null;
           upstreamModelId: string | null;
           inputPricePer1m: string;
           outputPricePer1m: string;
@@ -199,6 +360,7 @@ export class ChannelsService {
         logicalModels.get(row.logicalModelId)!.routes.push({
           id: row.routeId,
           channelId: row.routeChannelId!,
+          ...(row.routeChannelModelId ? { channelModelId: row.routeChannelModelId } : {}),
           upstreamModelId: row.routeUpstreamModelId,
           inputPricePer1m: row.routeInputPricePer1m!,
           outputPricePer1m: row.routeOutputPricePer1m!,
@@ -211,5 +373,56 @@ export class ChannelsService {
     }
 
     return [...logicalModels.values()];
+  }
+
+  private async prepareLogicalModelRoutes(
+    userId: string,
+    routes: LogicalModelRouteInput[]
+  ): Promise<PreparedLogicalModelRouteInput[]> {
+    const channelIds = [...new Set(routes.map((route) => route.channelId))];
+    const ownedChannelIds = await this.repository.findOwnedChannelIds(userId, channelIds);
+
+    if (ownedChannelIds.length !== channelIds.length) {
+      throw new ChannelsServiceError('INVALID_ROUTE_CHANNEL');
+    }
+
+    const preparedRoutes: PreparedLogicalModelRouteInput[] = [];
+
+    for (const route of routes) {
+      if (route.channelModelId) {
+        const channelModel = await this.repository.findActiveChannelModelByIdAndUserId(
+          userId,
+          route.channelId,
+          route.channelModelId
+        );
+
+        if (!channelModel) {
+          throw new ChannelsServiceError('INVALID_ROUTE_CHANNEL');
+        }
+
+        preparedRoutes.push({
+          channelId: route.channelId,
+          channelModelId: channelModel.id,
+          upstreamModelId: channelModel.upstreamModelId,
+          inputPricePer1m: channelModel.inputPricePer1m,
+          outputPricePer1m: channelModel.outputPricePer1m,
+          currency: channelModel.currency,
+          priority: route.priority
+        });
+        continue;
+      }
+
+      preparedRoutes.push({
+        channelId: route.channelId,
+        channelModelId: null,
+        upstreamModelId: route.upstreamModelId!,
+        inputPricePer1m: route.inputPricePer1m!,
+        outputPricePer1m: route.outputPricePer1m!,
+        currency: route.currency!,
+        priority: route.priority
+      });
+    }
+
+    return preparedRoutes;
   }
 }

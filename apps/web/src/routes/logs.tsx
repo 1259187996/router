@@ -1,7 +1,18 @@
-import { useQuery } from '@tanstack/react-query';
-import { DataTable } from '../components/data-table';
-import { StatusBadge } from '../components/status-badge';
-import type { AppApi } from '../lib/api-client';
+import type { ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import type { AppApi } from "../lib/api-client";
 import {
   formatDateTime,
   formatDuration,
@@ -9,162 +20,221 @@ import {
   formatUsd,
   getRequestStatusLabel,
   parseUsd,
-} from '../lib/log-format';
+} from "../lib/log-format";
 
-const logsQueryKey = ['logs'] as const;
+const logsQueryKey = (apiTokenId: string, page: number, pageSize: number) =>
+  ["logs", apiTokenId, page, pageSize] as const;
+const tokensQueryKey = ["tokens"] as const;
 
-type LogsRouteApi = Pick<AppApi, 'listLogs'>;
+type LogsRouteApi = Pick<AppApi, "listLogs" | "listTokens">;
 
-export function LogsRouteComponent({ api }: { api: LogsRouteApi }) {
+function statusBadgeVariant(status: string): "success" | "destructive" | "warning" | "secondary" {
+  if (status === "success") return "success";
+  if (status === "upstream_error" || status === "stream_failed" || status === "validation_failed" || status === "quota_rejected") return "destructive";
+  if (status === "review_required") return "warning";
+  return "secondary";
+}
+
+function formatInteger(value: number) {
+  return new Intl.NumberFormat("zh-CN").format(value);
+}
+
+export function LogsRouteComponent({
+  api,
+  onInspectLog,
+  detailPanel,
+}: {
+  api: LogsRouteApi;
+  onInspectLog?: (logId: string) => void;
+  detailPanel?: ReactNode;
+}) {
+  const [apiTokenId, setApiTokenId] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
   const logsQuery = useQuery({
-    queryKey: logsQueryKey,
-    queryFn: () => api.listLogs(),
+    queryKey: logsQueryKey(apiTokenId, page, pageSize),
+    queryFn: () =>
+      api.listLogs({
+        ...(apiTokenId ? { apiTokenId } : {}),
+        page,
+        pageSize,
+      }),
   });
-
+  const tokensQuery = useQuery({ queryKey: tokensQueryKey, queryFn: () => api.listTokens() });
   const logs = logsQuery.data?.logs ?? [];
-  const settledTotal = logs.reduce((total, log) => total + parseUsd(log.settlementPriceUsd), 0);
-  const successCount = logs.filter((log) => log.requestStatus === 'success').length;
-  const reviewCount = logs.filter((log) => log.requestStatus !== 'success').length;
+  const pagination = logsQuery.data?.pagination ?? {
+    page,
+    pageSize,
+    total: logs.length,
+    totalPages: Math.max(1, Math.ceil(logs.length / pageSize)),
+  };
+  const tokens = tokensQuery.data?.tokens ?? [];
+  const fallbackInputTokens = logs.reduce((total, log) => total + (log.inputTokens ?? 0), 0);
+  const fallbackOutputTokens = logs.reduce((total, log) => total + (log.outputTokens ?? 0), 0);
+  const fallbackSummary = {
+    totalRequests: pagination.total,
+    successfulRequests: logs.filter((log) => log.requestStatus === "success").length,
+    attentionRequests: logs.filter((log) => log.requestStatus !== "success").length,
+    totalTokens: fallbackInputTokens + fallbackOutputTokens,
+    inputTokens: fallbackInputTokens,
+    outputTokens: fallbackOutputTokens,
+    settlementPriceUsd: logs.reduce((total, log) => total + parseUsd(log.settlementPriceUsd), 0).toFixed(4),
+  };
+  const summary = logsQuery.data?.summary ?? fallbackSummary;
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
-      <section className="space-y-4">
-        <h1 className="sr-only">请求日志</h1>
-        <div className="grid gap-4 md:grid-cols-4">
-          {[
-            { label: '请求总数', value: `${logs.length}`.padStart(2, '0'), detail: '按单次请求审计' },
-            { label: '成功请求', value: `${successCount}`.padStart(2, '0'), detail: '已完成结算' },
-            {
-              label: '待关注',
-              value: `${reviewCount}`.padStart(2, '0'),
-              detail: '异常、失败或待复核',
-            },
-            {
-              label: '累计结算',
-              value: formatUsd(settledTotal.toFixed(4)),
-              detail: '当前列表内费用合计',
-            },
-          ].map((metric) => (
-            <article key={metric.label} className="app-surface rounded-[28px] p-5">
-              <p className="font-mono text-[11px] uppercase tracking-[0.26em] text-accent">
-                {metric.label}
-              </p>
-              <p className="mt-4 text-4xl font-semibold tracking-tight text-brand-strong">
-                {metric.value}
-              </p>
-              <p className="mt-3 text-sm text-ink-soft">{metric.detail}</p>
-            </article>
-          ))}
+    <div className="space-y-6">
+      {/* Hero banner */}
+      <div className="rounded-xl bg-gradient-to-r from-accent-blue to-accent-cyan px-6 py-6 text-white">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.3em] text-white/60">
+              Request Ledger
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight">请求日志</h1>
+            <p className="mt-3 max-w-[70ch] text-sm leading-6 text-white/80">
+              以单次请求为粒度展示接口类型、最终路由、token 消耗、上游原价与本地结算费用。
+            </p>
+          </div>
         </div>
+      </div>
 
-        <section className="app-surface rounded-[30px] p-6">
-          <div className="flex flex-col gap-3 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
+      {/* Metrics row */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          {
+            label: "请求总数",
+            value: formatInteger(summary.totalRequests),
+            detail: `${formatInteger(summary.successfulRequests)} 次成功`,
+          },
+          {
+            label: "Token 总数",
+            value: formatInteger(summary.totalTokens),
+            detail: `输入 ${formatInteger(summary.inputTokens)} / 输出 ${formatInteger(summary.outputTokens)}`,
+          },
+          {
+            label: "待关注",
+            value: formatInteger(summary.attentionRequests),
+            detail: "异常、失败或待复核",
+          },
+          {
+            label: "累计结算",
+            value: formatUsd(summary.settlementPriceUsd),
+            detail: "当前筛选条件下费用合计",
+          },
+        ].map((m) => (
+          <Card key={m.label}>
+            <CardHeader className="pb-2">
+              <p className="font-mono text-[10px] uppercase tracking-[0.26em] text-muted-foreground">{m.label}</p>
+              <CardTitle className="text-3xl">{m.value}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>{m.detail}</CardDescription>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Log table */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
-                Request Ledger
-              </p>
-              <h3 className="mt-2 text-2xl font-semibold tracking-tight text-brand-strong">
-                请求日志
-              </h3>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-soft">
-                以单次请求为粒度展示接口类型、最终路由、token 消耗、上游原价与本地结算费用。
-              </p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-muted-foreground">Request Ledger</p>
             </div>
-            <div className="rounded-[20px] border border-line-soft bg-white/72 px-4 py-3 text-sm text-ink-soft">
-              单击详情可查看完整路由尝试、事件摘要和费用解释。
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <label htmlFor="log-token-filter" className="text-xs font-medium text-muted-foreground">
+                  按令牌筛选
+                </label>
+                <select
+                  id="log-token-filter"
+                  className="flex h-9 min-w-48 rounded-md border border-input bg-background px-3 py-1 text-sm"
+                  value={apiTokenId}
+                  onChange={(event) => {
+                    setApiTokenId(event.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">全部令牌</option>
+                  {tokens.map((token) => (
+                    <option key={token.id} value={token.id}>
+                      {token.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
-
-          <div className="mt-6">
-            <DataTable caption="请求日志列表">
-              <thead className="border-b border-line-soft bg-[rgba(18,70,61,0.04)] font-mono text-[11px] uppercase tracking-[0.18em] text-ink-soft">
-                <tr>
-                  <th className="px-4 py-3 font-medium">请求</th>
-                  <th className="px-4 py-3 font-medium">路由结果</th>
-                  <th className="px-4 py-3 font-medium">Token / 费用</th>
-                  <th className="px-4 py-3 font-medium">状态</th>
-                  <th className="px-4 py-3 font-medium text-right">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => (
-                  <tr
-                    key={log.id}
-                    className="border-b border-line-soft/70 last:border-b-0 hover:bg-[rgba(18,70,61,0.03)]"
-                  >
-                    <td className="px-4 py-4 align-top">
-                      <p className="font-medium text-ink">{log.endpointType}</p>
-                      <p className="mt-1 text-sm text-brand-strong">{log.logicalModelAlias}</p>
-                      <p className="mt-1 text-xs text-ink-soft">{formatDateTime(log.startedAt)}</p>
-                    </td>
-                    <td className="px-4 py-4 align-top">
-                      <p className="font-medium text-ink">{log.finalUpstreamModelId ?? '--'}</p>
-                      <p className="mt-1 text-xs text-ink-soft">
-                        HTTP {log.httpStatusCode ?? '--'} / {formatDuration(log.durationMs)}
-                      </p>
-                    </td>
-                    <td className="px-4 py-4 align-top">
-                      <p className="font-medium text-brand-strong">{formatUsd(log.settlementPriceUsd)}</p>
-                      <p className="mt-1 text-xs text-ink-soft">
-                        上游原价 {formatUsd(log.rawUpstreamPriceUsd)}
-                      </p>
-                      <p className="mt-2 text-sm text-ink">{formatTokenSummary(log.inputTokens, log.outputTokens)}</p>
-                    </td>
-                    <td className="px-4 py-4 align-top">
-                      <StatusBadge
-                        status={log.requestStatus}
-                        label={getRequestStatusLabel(log.requestStatus)}
-                      />
-                      <p className="mt-2 text-xs text-ink-soft">{log.errorSummary ?? '无错误摘要'}</p>
-                    </td>
-                    <td className="px-4 py-4 align-top text-right">
-                      <a
-                        href={`/logs/${log.id}`}
-                        className="rounded-full border border-line-strong bg-white px-4 py-2 text-sm font-medium text-brand-strong transition hover:border-brand hover:text-brand"
-                      >
-                        查看详情
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </DataTable>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>请求</TableHead>
+                <TableHead>路由结果</TableHead>
+                <TableHead>Token / 费用</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead className="text-right">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {logs.map((log) => (
+                <TableRow key={log.id}>
+                  <TableCell>
+                    <p className="font-medium">{log.endpointType}</p>
+                    <p className="text-sm font-medium text-primary">{log.logicalModelAlias}</p>
+                    <p className="text-xs text-muted-foreground">{formatDateTime(log.startedAt)}</p>
+                  </TableCell>
+                  <TableCell>
+                    <p className="font-medium">{log.finalUpstreamModelId ?? "--"}</p>
+                    <p className="text-xs text-muted-foreground">HTTP {log.httpStatusCode ?? "--"} / {formatDuration(log.durationMs)}</p>
+                  </TableCell>
+                  <TableCell>
+                    <p className="font-medium">{formatUsd(log.settlementPriceUsd)}</p>
+                    <p className="text-xs text-muted-foreground">上游 {formatUsd(log.rawUpstreamPriceUsd)}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{formatTokenSummary(log.inputTokens, log.outputTokens)}</p>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={statusBadgeVariant(log.requestStatus)}>{getRequestStatusLabel(log.requestStatus)}</Badge>
+                    <p className="mt-1 text-xs text-muted-foreground">{log.errorSummary ?? "无错误摘要"}</p>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="outline" size="sm" onClick={() => onInspectLog?.(log.id)}>
+                      查看详情
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+            <span>
+              第 {pagination.page} / {pagination.totalPages} 页
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagination.page <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                上一页
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagination.page >= pagination.totalPages}
+                onClick={() => setPage((current) => current + 1)}
+              >
+                下一页
+              </Button>
+            </div>
           </div>
-        </section>
-      </section>
+        </CardContent>
+      </Card>
 
-      <aside className="space-y-4">
-        <section className="app-surface rounded-[30px] p-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">Read Cost</p>
-          <h3 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">
-            费用怎么看
-          </h3>
-          <div className="mt-5 space-y-3 text-sm leading-6 text-ink-soft">
-            <p>本地结算费用基于最终命中的逻辑路由价格表和实际 usage 计算。</p>
-            <p>上游原价是上游返回的费用快照；如果上游没有提供，这里会显示为空。</p>
-            <p>详情页会继续展开价格公式、失败切换链路和原始 usage。</p>
-          </div>
-        </section>
-
-        <section className="app-surface rounded-[30px] p-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">Status Lens</p>
-          <h3 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">
-            状态提示
-          </h3>
-          <div className="mt-5 grid gap-3">
-            {[
-              ['成功', '请求完成并且 usage 已被结算。'],
-              ['需复核', '响应返回成功，但 usage 不完整或不能自动结算。'],
-              ['流中断', '流式传输中途失败，需要结合尝试时间线排查。'],
-            ].map(([label, detail]) => (
-              <article key={label} className="app-muted-surface rounded-[22px] p-4">
-                <p className="font-medium text-ink">{label}</p>
-                <p className="mt-2 text-sm leading-6 text-ink-soft">{detail}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-      </aside>
+      {detailPanel}
     </div>
   );
 }

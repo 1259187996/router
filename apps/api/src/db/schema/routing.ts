@@ -40,6 +40,31 @@ export const channels = pgTable(
   ]
 );
 
+export const channelModels = pgTable(
+  'channel_models',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    channelId: uuid('channel_id')
+      .notNull()
+      .references(() => channels.id, { onDelete: 'cascade' }),
+    upstreamModelId: text('upstream_model_id').notNull(),
+    inputPricePer1m: numeric('input_price_per_1m', { precision: 12, scale: 4 }).notNull(),
+    outputPricePer1m: numeric('output_price_per_1m', { precision: 12, scale: 4 }).notNull(),
+    currency: text('currency').notNull(),
+    status: resourceStatusEnum('status').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
+  },
+  (table) => [
+    index('channel_models_user_id_idx').on(table.userId),
+    index('channel_models_channel_id_idx').on(table.channelId),
+    index('channel_models_channel_status_idx').on(table.channelId, table.status)
+  ]
+);
+
 export const logicalModels = pgTable(
   'logical_models',
   {
@@ -75,6 +100,9 @@ export const channelRoutes = pgTable(
     channelId: uuid('channel_id')
       .notNull()
       .references(() => channels.id, { onDelete: 'cascade' }),
+    channelModelId: uuid('channel_model_id').references(() => channelModels.id, {
+      onDelete: 'set null'
+    }),
     upstreamModelId: text('upstream_model_id'),
     inputPricePer1m: numeric('input_price_per_1m', { precision: 12, scale: 4 }).notNull(),
     outputPricePer1m: numeric('output_price_per_1m', { precision: 12, scale: 4 }).notNull(),
@@ -105,6 +133,7 @@ export const apiTokens = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     tokenHash: text('token_hash').notNull().unique(),
+    tokenEncrypted: text('token_encrypted'),
     logicalModelId: uuid('logical_model_id')
       .notNull()
       .references(() => logicalModels.id, { onDelete: 'cascade' }),

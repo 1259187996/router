@@ -14,8 +14,8 @@ import { encryptChannelSecret } from '../../src/modules/channels/secret.js';
 import { TokenService } from '../../src/modules/tokens/service.js';
 import { TokensRepository } from '../../src/modules/tokens/repository.js';
 
-export const adminEmail = 'admin@example.com';
-export const adminPassword = 'Admin123!Admin123!';
+export const adminEmail = 'admin';
+export const adminPassword = 'admin123';
 
 type AppWithDb = FastifyInstance & {
   db?: NodePgDatabase<typeof schema>;

@@ -1,16 +1,20 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { AppDb } from '../modules/auth/repository.js';
 import type { AuthService, PublicUser } from '../modules/auth/service.js';
-import { env } from '../env.js';
 
 export const sessionCookieName = 'router_session';
-export const sessionCookieOptions = {
-  httpOnly: true,
-  sameSite: 'lax' as const,
-  path: '/',
-  secure: env.SESSION_COOKIE_SECURE,
-  maxAge: 7 * 24 * 60 * 60
-};
+
+export function createSessionCookieOptions(secure: boolean) {
+  return {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    path: '/',
+    secure,
+    maxAge: 7 * 24 * 60 * 60
+  };
+}
+
+export type SessionCookieOptions = ReturnType<typeof createSessionCookieOptions>;
 
 declare module 'fastify' {
   interface FastifyInstance {

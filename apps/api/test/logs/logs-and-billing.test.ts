@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { buildApp } from '../../src/app.js';
-import { priceSnapshots } from '../../src/db/schema/index.js';
+import { priceSnapshots, requestLogs } from '../../src/db/schema/index.js';
 import { createMockUpstream } from '../helpers/mock-upstream.js';
 import { loginAsAdmin } from '../helpers/login.js';
 import { createTestDb } from '../helpers/test-db.js';
@@ -386,6 +386,180 @@ describe('logs and billing', () => {
         id: token.tokenId,
         budgetUsedUsd: '0.40',
         budgetStatus: 'available'
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('paginates logs, filters them by token, and exposes real overview totals', async () => {
+    const app = await buildApp({
+      logger: false,
+      db: db.db,
+      channelKeyEncryptionSecret
+    });
+
+    try {
+      const ownerSession = await createUserSession(app, {
+        email: 'logs-filter-owner@example.com',
+        displayName: 'Logs Filter Owner',
+        password: 'Password123!Password123!'
+      });
+      const currentUser = await app.inject({
+        method: 'GET',
+        url: '/auth/me',
+        headers: {
+          cookie: ownerSession.cookie
+        }
+      });
+
+      expect(currentUser.statusCode).toBe(200);
+      const userId = currentUser.json().user.id as string;
+      const firstToken = await createGatewayToken(app, {
+        session: ownerSession,
+        alias: 'logs-filter-token-a',
+        upstreamBaseUrl: primaryUpstream.baseUrl
+      });
+      const secondToken = await createGatewayToken(app, {
+        session: ownerSession,
+        alias: 'logs-filter-token-b',
+        upstreamBaseUrl: primaryUpstream.baseUrl
+      });
+      const baseTime = new Date('2026-01-01T00:00:00.000Z');
+
+      await db.db.insert(requestLogs).values([
+        {
+          userId,
+          apiTokenId: firstToken.tokenId,
+          endpointType: 'chat_completions',
+          logicalModelAlias: firstToken.alias,
+          requestStatus: 'success',
+          settlementPriceUsd: '1.2500',
+          inputTokens: 100,
+          outputTokens: 25,
+          startedAt: new Date(baseTime.getTime() + 3000),
+          finishedAt: new Date(baseTime.getTime() + 3500)
+        },
+        {
+          userId,
+          apiTokenId: firstToken.tokenId,
+          endpointType: 'responses',
+          logicalModelAlias: firstToken.alias,
+          requestStatus: 'success',
+          settlementPriceUsd: '2.0000',
+          inputTokens: 200,
+          outputTokens: 50,
+          startedAt: new Date(baseTime.getTime() + 2000),
+          finishedAt: new Date(baseTime.getTime() + 2500)
+        },
+        {
+          userId,
+          apiTokenId: firstToken.tokenId,
+          endpointType: 'embeddings',
+          logicalModelAlias: firstToken.alias,
+          requestStatus: 'review_required',
+          settlementPriceUsd: null,
+          inputTokens: null,
+          outputTokens: null,
+          startedAt: new Date(baseTime.getTime() + 1000),
+          finishedAt: new Date(baseTime.getTime() + 1500)
+        },
+        {
+          userId,
+          apiTokenId: secondToken.tokenId,
+          endpointType: 'chat_completions',
+          logicalModelAlias: secondToken.alias,
+          requestStatus: 'success',
+          settlementPriceUsd: '3.5000',
+          inputTokens: 300,
+          outputTokens: 75,
+          startedAt: baseTime,
+          finishedAt: new Date(baseTime.getTime() + 500)
+        }
+      ]);
+
+      const firstPage = await app.inject({
+        method: 'GET',
+        url: `/internal/logs?apiTokenId=${firstToken.tokenId}&page=1&pageSize=2`,
+        headers: {
+          cookie: ownerSession.cookie
+        }
+      });
+
+      expect(firstPage.statusCode).toBe(200);
+      expect(firstPage.json()).toMatchObject({
+        pagination: {
+          page: 1,
+          pageSize: 2,
+          total: 3,
+          totalPages: 2
+        },
+        summary: {
+          totalRequests: 3,
+          successfulRequests: 2,
+          attentionRequests: 1,
+          totalTokens: 375,
+          inputTokens: 300,
+          outputTokens: 75,
+          settlementPriceUsd: '3.2500'
+        }
+      });
+      expect(firstPage.json().logs).toHaveLength(2);
+      expect(firstPage.json().logs.every((log: { apiTokenId: string }) => log.apiTokenId === firstToken.tokenId)).toBe(true);
+      expect(firstPage.json().logs.map((log: { endpointType: string }) => log.endpointType)).toEqual([
+        'chat_completions',
+        'responses'
+      ]);
+
+      const secondPage = await app.inject({
+        method: 'GET',
+        url: `/internal/logs?apiTokenId=${firstToken.tokenId}&page=2&pageSize=2`,
+        headers: {
+          cookie: ownerSession.cookie
+        }
+      });
+
+      expect(secondPage.statusCode).toBe(200);
+      expect(secondPage.json()).toMatchObject({
+        pagination: {
+          page: 2,
+          pageSize: 2,
+          total: 3,
+          totalPages: 2
+        },
+        summary: {
+          totalRequests: 3,
+          successfulRequests: 2,
+          attentionRequests: 1,
+          totalTokens: 375,
+          inputTokens: 300,
+          outputTokens: 75,
+          settlementPriceUsd: '3.2500'
+        }
+      });
+      expect(secondPage.json().logs).toHaveLength(1);
+      expect(secondPage.json().logs[0]).toMatchObject({
+        apiTokenId: firstToken.tokenId,
+        requestStatus: 'review_required'
+      });
+
+      const overview = await app.inject({
+        method: 'GET',
+        url: '/internal/overview',
+        headers: {
+          cookie: ownerSession.cookie
+        }
+      });
+
+      expect(overview.statusCode).toBe(200);
+      expect(overview.json()).toEqual({
+        totalRequests: 4,
+        successfulRequests: 3,
+        reviewRequiredRequests: 1,
+        totalTokens: 750,
+        inputTokens: 600,
+        outputTokens: 150,
+        settlementPriceUsd: '6.7500'
       });
     } finally {
       await app.close();

@@ -1,115 +1,228 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
-import { DataTable } from '../components/data-table';
-import { MetricTile } from '../components/metric-tile';
-import { ModalShell } from '../components/modal-shell';
-import { PageHeader } from '../components/page-header';
-import { StatusBadge } from '../components/status-badge';
-import type { AppApi } from '../lib/api-client';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { toast } from "@/components/ui/sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import type { AppApi, ChannelModelRecord, LogicalModelRecord, UpdateChannelInput } from "../lib/api-client";
+import { Loader2, Pencil, Plus, Route, TestTube } from "lucide-react";
 
-const channelsQueryKey = ['channels'] as const;
-const logicalModelsQueryKey = ['logical-models'] as const;
-const fieldClassName =
-  'mt-2 block w-full rounded-[18px] border border-line-strong bg-white/72 px-4 py-3 text-base text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10';
+const channelsQueryKey = ["channels"] as const;
+const channelDetailQueryKey = (channelId: string | null) => ["channel-detail", channelId] as const;
 
-type ChannelsRouteApi = Pick<
-  AppApi,
-  'listChannels' | 'createChannel' | 'testChannel' | 'listLogicalModels' | 'createLogicalModel'
->;
-
-type RouteDraft = {
-  channelId: string;
-  upstreamModelId: string;
-  inputPricePer1m: string;
-  outputPricePer1m: string;
-  currency: string;
+type LogicalRouteFormState = {
+  channelModelId: string;
   priority: string;
 };
 
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return '未记录';
-  }
+type LogicalModelFormState = {
+  alias: string;
+  description: string;
+  routes: LogicalRouteFormState[];
+};
 
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
+function createEmptyLogicalRoute(priority = "1"): LogicalRouteFormState {
+  return {
+    channelModelId: "",
+    priority,
+  };
+}
+
+function createEmptyLogicalModelForm(): LogicalModelFormState {
+  return {
+    alias: "",
+    description: "",
+    routes: [createEmptyLogicalRoute()],
+  };
+}
+
+type ChannelsRouteApi = Pick<
+  AppApi,
+  | "listChannels"
+  | "getChannelDetail"
+  | "createChannel"
+  | "updateChannel"
+  | "deleteChannel"
+  | "createChannelModel"
+  | "updateChannelModel"
+  | "deleteChannelModel"
+  | "testChannel"
+  | "createLogicalModel"
+  | "updateLogicalModel"
+  | "deleteLogicalModel"
+>;
+
+function formatDateTime(value: string | null) {
+  if (!value) return "未记录";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
     hour12: false,
   }).format(new Date(value));
 }
 
 function getTestStatusLabel(status: string | null) {
-  if (status === 'ok') {
-    return '最近测试通过';
-  }
-
-  if (status === 'failed') {
-    return '最近测试失败';
-  }
-
-  return '未测试';
-}
-
-function getLogicalModelDescription(value: string) {
-  return value.trim().length > 0 ? value : '未填写说明';
-}
-
-function emptyRouteDraft(): RouteDraft {
-  return {
-    channelId: '',
-    upstreamModelId: '',
-    inputPricePer1m: '0.0000',
-    outputPricePer1m: '0.0000',
-    currency: 'USD',
-    priority: '1',
-  };
+  if (status === "ok") return "最近测试通过";
+  if (status === "failed") return "最近测试失败";
+  return "未测试";
 }
 
 export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
   const queryClient = useQueryClient();
-  const [isCreateChannelModalOpen, setIsCreateChannelModalOpen] = useState(false);
-  const [isCreateLogicalModelModalOpen, setIsCreateLogicalModelModalOpen] = useState(false);
-  const [channelForm, setChannelForm] = useState({
-    name: '',
-    baseUrl: '',
-    apiKey: '',
-    defaultModelId: '',
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const [isCreateChannelOpen, setIsCreateChannelOpen] = useState(false);
+  const [isEditChannelOpen, setIsEditChannelOpen] = useState(false);
+  const [isAddModelOpen, setIsAddModelOpen] = useState(false);
+  const [editingModelId, setEditingModelId] = useState<string | null>(null);
+  const [isCreateLogicalModelOpen, setIsCreateLogicalModelOpen] = useState(false);
+  const [editingLogicalModelId, setEditingLogicalModelId] = useState<string | null>(null);
+  const [channelForm, setChannelForm] = useState({ name: "", baseUrl: "", apiKey: "", defaultModelId: "" });
+  const [editChannelForm, setEditChannelForm] = useState({ name: "", baseUrl: "", apiKey: "", defaultModelId: "" });
+  const [modelForm, setModelForm] = useState({
+    upstreamModelId: "",
+    inputPricePer1m: "0.0000",
+    outputPricePer1m: "0.0000",
+    currency: "USD",
   });
-  const [logicalModelForm, setLogicalModelForm] = useState({
-    alias: '',
-    description: '',
+  const [editModelForm, setEditModelForm] = useState({
+    upstreamModelId: "",
+    inputPricePer1m: "0.0000",
+    outputPricePer1m: "0.0000",
+    currency: "USD",
   });
-  const [routeDrafts, setRouteDrafts] = useState<RouteDraft[]>([emptyRouteDraft()]);
+  const [logicalModelForm, setLogicalModelForm] = useState<LogicalModelFormState>(() => createEmptyLogicalModelForm());
+  const [editLogicalModelForm, setEditLogicalModelForm] = useState<LogicalModelFormState>(() => createEmptyLogicalModelForm());
 
-  const channelsQuery = useQuery({
-    queryKey: channelsQueryKey,
-    queryFn: () => api.listChannels(),
+  const channelsQuery = useQuery({ queryKey: channelsQueryKey, queryFn: () => api.listChannels() });
+  const channelDetailQuery = useQuery({
+    queryKey: channelDetailQueryKey(selectedChannelId),
+    queryFn: () => api.getChannelDetail(selectedChannelId!),
+    enabled: Boolean(selectedChannelId),
   });
-  const logicalModelsQuery = useQuery({
-    queryKey: logicalModelsQueryKey,
-    queryFn: () => api.listLogicalModels(),
-  });
+
+  const channels = channelsQuery.data?.channels ?? [];
+  const selectedDetail = channelDetailQuery.data;
+  const selectedChannel = selectedDetail?.channel ?? channels.find((channel) => channel.id === selectedChannelId) ?? null;
+  const channelModels = selectedDetail?.models ?? [];
+  const channelLogicalModels = selectedDetail?.logicalModels ?? [];
+  const activeChannels = channels.filter((channel) => channel.status === "active").length;
+  const testedChannels = channels.filter((channel) => channel.lastTestStatus === "ok").length;
+  const activeModelOptions = useMemo(
+    () => channelModels.filter((model) => model.status === "active"),
+    [channelModels],
+  );
+
+  const invalidateChannels = async () => {
+    await queryClient.invalidateQueries({ queryKey: channelsQueryKey });
+    if (selectedChannelId) {
+      await queryClient.invalidateQueries({ queryKey: channelDetailQueryKey(selectedChannelId) });
+    }
+  };
 
   const createChannelMutation = useMutation({
     mutationFn: () => api.createChannel(channelForm),
     onSuccess: async () => {
-      setChannelForm({
-        name: '',
-        baseUrl: '',
-        apiKey: '',
-        defaultModelId: '',
-      });
-      setIsCreateChannelModalOpen(false);
-      await queryClient.invalidateQueries({ queryKey: channelsQueryKey });
+      setChannelForm({ name: "", baseUrl: "", apiKey: "", defaultModelId: "" });
+      setIsCreateChannelOpen(false);
+      await invalidateChannels();
+      toast.success("渠道已创建");
+    },
+  });
+
+  const updateChannelMutation = useMutation({
+    mutationFn: () => {
+      const input: UpdateChannelInput = {
+        name: editChannelForm.name,
+        baseUrl: editChannelForm.baseUrl,
+        defaultModelId: editChannelForm.defaultModelId,
+      };
+
+      if (editChannelForm.apiKey.trim()) {
+        input.apiKey = editChannelForm.apiKey;
+      }
+
+      return api.updateChannel(selectedChannelId!, input);
+    },
+    onSuccess: async () => {
+      setIsEditChannelOpen(false);
+      setEditChannelForm({ name: "", baseUrl: "", apiKey: "", defaultModelId: "" });
+      await invalidateChannels();
+      toast.success("渠道已更新");
     },
   });
 
   const testChannelMutation = useMutation({
     mutationFn: (channelId: string) => api.testChannel(channelId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: channelsQueryKey });
+      await invalidateChannels();
+      toast.success("渠道测试通过");
+    },
+    onError: () => {
+      toast.error("渠道测试失败");
+    },
+  });
+
+  const createModelMutation = useMutation({
+    mutationFn: () => api.createChannelModel(selectedChannelId!, modelForm),
+    onSuccess: async () => {
+      setModelForm({
+        upstreamModelId: "",
+        inputPricePer1m: "0.0000",
+        outputPricePer1m: "0.0000",
+        currency: "USD",
+      });
+      setIsAddModelOpen(false);
+      await invalidateChannels();
+      toast.success("渠道模型已添加");
+    },
+  });
+
+  const updateModelMutation = useMutation({
+    mutationFn: () =>
+      api.updateChannelModel(selectedChannelId!, editingModelId!, {
+        upstreamModelId: editModelForm.upstreamModelId,
+        inputPricePer1m: editModelForm.inputPricePer1m,
+        outputPricePer1m: editModelForm.outputPricePer1m,
+        currency: editModelForm.currency,
+      }),
+    onSuccess: async () => {
+      setEditingModelId(null);
+      setEditModelForm({
+        upstreamModelId: "",
+        inputPricePer1m: "0.0000",
+        outputPricePer1m: "0.0000",
+        currency: "USD",
+      });
+      await invalidateChannels();
+      toast.success("渠道模型已更新");
     },
   });
 
@@ -118,638 +231,617 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
       api.createLogicalModel({
         alias: logicalModelForm.alias,
         description: logicalModelForm.description,
-        routes: routeDrafts.map((route) => ({
-          channelId: route.channelId,
-          upstreamModelId: route.upstreamModelId,
-          inputPricePer1m: route.inputPricePer1m,
-          outputPricePer1m: route.outputPricePer1m,
-          currency: route.currency,
-          priority: Number(route.priority),
+        routes: logicalModelForm.routes.map((route) => ({
+            channelId: selectedChannelId!,
+            channelModelId: route.channelModelId,
+            priority: Number(route.priority),
         })),
       }),
     onSuccess: async () => {
-      setLogicalModelForm({
-        alias: '',
-        description: '',
-      });
-      setRouteDrafts([emptyRouteDraft()]);
-      setIsCreateLogicalModelModalOpen(false);
-      await queryClient.invalidateQueries({ queryKey: logicalModelsQueryKey });
+      setLogicalModelForm(createEmptyLogicalModelForm());
+      setIsCreateLogicalModelOpen(false);
+      await invalidateChannels();
+      toast.success("逻辑模型已创建");
     },
   });
 
-  const channels = channelsQuery.data?.channels ?? [];
-  const logicalModels = logicalModelsQuery.data?.logicalModels ?? [];
-  const activeChannels = channels.filter((channel) => channel.status === 'active').length;
-  const testedChannels = channels.filter((channel) => channel.lastTestStatus === 'ok').length;
-  const routeCount = logicalModels.reduce((total, logicalModel) => total + logicalModel.routes.length, 0);
+  const updateLogicalModelMutation = useMutation({
+    mutationFn: () =>
+      api.updateLogicalModel(editingLogicalModelId!, {
+        alias: editLogicalModelForm.alias,
+        description: editLogicalModelForm.description,
+        routes: editLogicalModelForm.routes.map((route) => ({
+            channelId: selectedChannelId!,
+            channelModelId: route.channelModelId,
+            priority: Number(route.priority),
+        })),
+      }),
+    onSuccess: async () => {
+      setEditingLogicalModelId(null);
+      setEditLogicalModelForm(createEmptyLogicalModelForm());
+      await invalidateChannels();
+      toast.success("逻辑模型已更新");
+    },
+  });
+
+  const deleteChannelMutation = useMutation({
+    mutationFn: (channelId: string) => api.deleteChannel(channelId),
+    onSuccess: async () => {
+      setSelectedChannelId(null);
+      await invalidateChannels();
+      toast.success("渠道已停用");
+    },
+  });
+
+  const deleteChannelModelMutation = useMutation({
+    mutationFn: (input: { channelId: string; modelId: string }) =>
+      api.deleteChannelModel(input.channelId, input.modelId),
+    onSuccess: async () => {
+      await invalidateChannels();
+      toast.success("渠道模型已停用");
+    },
+  });
+
+  const deleteLogicalModelMutation = useMutation({
+    mutationFn: (logicalModelId: string) => api.deleteLogicalModel(logicalModelId),
+    onSuccess: async () => {
+      await invalidateChannels();
+      toast.success("逻辑模型已停用");
+    },
+  });
+
+  const openEditChannelDialog = () => {
+    if (!selectedChannel) return;
+
+    setEditChannelForm({
+      name: selectedChannel.name,
+      baseUrl: selectedChannel.baseUrl,
+      apiKey: "",
+      defaultModelId: selectedChannel.defaultModelId,
+    });
+    setIsEditChannelOpen(true);
+  };
+
+  const openEditModelDialog = (model: ChannelModelRecord) => {
+    setEditingModelId(model.id);
+    setEditModelForm({
+      upstreamModelId: model.upstreamModelId,
+      inputPricePer1m: model.inputPricePer1m,
+      outputPricePer1m: model.outputPricePer1m,
+      currency: model.currency,
+    });
+  };
+
+  const openEditLogicalModelDialog = (logicalModel: LogicalModelRecord) => {
+    const routes = logicalModel.routes
+      .filter((item) => item.channelId === selectedChannelId)
+      .map((route) => ({
+        channelModelId:
+          route.channelModelId ??
+          channelModels.find((model) => model.upstreamModelId === route.upstreamModelId)?.id ??
+          "",
+        priority: String(route.priority),
+      }));
+
+    setEditingLogicalModelId(logicalModel.id);
+    setEditLogicalModelForm({
+      alias: logicalModel.alias,
+      description: logicalModel.description,
+      routes: routes.length > 0 ? routes : [createEmptyLogicalRoute()],
+    });
+  };
+
+  const addLogicalRoute = () => {
+    setLogicalModelForm((current) => ({
+      ...current,
+      routes: [...current.routes, createEmptyLogicalRoute(String(current.routes.length + 1))],
+    }));
+  };
+
+  const addEditLogicalRoute = () => {
+    setEditLogicalModelForm((current) => ({
+      ...current,
+      routes: [...current.routes, createEmptyLogicalRoute(String(current.routes.length + 1))],
+    }));
+  };
+
+  const updateLogicalRoute = (
+    index: number,
+    field: keyof LogicalRouteFormState,
+    value: string,
+  ) => {
+    setLogicalModelForm((current) => ({
+      ...current,
+      routes: current.routes.map((route, routeIndex) =>
+        routeIndex === index ? { ...route, [field]: value } : route,
+      ),
+    }));
+  };
+
+  const updateEditLogicalRoute = (
+    index: number,
+    field: keyof LogicalRouteFormState,
+    value: string,
+  ) => {
+    setEditLogicalModelForm((current) => ({
+      ...current,
+      routes: current.routes.map((route, routeIndex) =>
+        routeIndex === index ? { ...route, [field]: value } : route,
+      ),
+    }));
+  };
+
+  const removeLogicalRoute = (index: number) => {
+    setLogicalModelForm((current) => ({
+      ...current,
+      routes: current.routes.length > 1 ? current.routes.filter((_, routeIndex) => routeIndex !== index) : current.routes,
+    }));
+  };
+
+  const removeEditLogicalRoute = (index: number) => {
+    setEditLogicalModelForm((current) => ({
+      ...current,
+      routes: current.routes.length > 1 ? current.routes.filter((_, routeIndex) => routeIndex !== index) : current.routes,
+    }));
+  };
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        eyebrow="Channel Console"
-        title="渠道策略"
-        description="统一管理 OpenAI-compatible 渠道、默认模型与逻辑别名映射，把链路健康、测试结果和价格编排收敛到同一个运营台。"
-        actions={
-          <>
-            <button
-              type="button"
-              className="rounded-full border border-white/18 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/18"
-              onClick={() => setIsCreateLogicalModelModalOpen(true)}
-            >
-              新建逻辑模型
-            </button>
-            <button
-              type="button"
-              className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-brand-strong transition hover:bg-white/90"
-              onClick={() => setIsCreateChannelModalOpen(true)}
-            >
-              新增渠道
-            </button>
-          </>
-        }
-        meta={
-          <>
-            <MetricTile
-              label="渠道总数"
-              value={`${channels.length}`.padStart(2, '0')}
-              detail="接入出口资产"
-            />
-            <MetricTile
-              label="活跃渠道"
-              value={`${activeChannels}`.padStart(2, '0')}
-              detail="当前可用链路"
-            />
-            <MetricTile
-              label="测试通过"
-              value={`${testedChannels}`.padStart(2, '0')}
-              detail="最近一次测试成功"
-            />
-            <MetricTile
-              label="逻辑模型"
-              value={`${logicalModels.length}`.padStart(2, '0')}
-              detail="策略别名映射"
-            />
-            <MetricTile
-              label="生效路由"
-              value={`${routeCount}`.padStart(2, '0')}
-              detail="优先级编排条目"
-            />
-            <MetricTile label="接入规范" value="OA" detail="OpenAI-compatible" />
-          </>
-        }
-      />
-
-      <section className="app-surface rounded-[30px] p-6">
-        <div className="flex flex-col gap-4 border-b border-line-soft pb-5 xl:flex-row xl:items-end xl:justify-between">
+    <div className="space-y-6">
+      <div className="rounded-xl bg-gradient-to-r from-accent-blue to-accent-cyan px-6 py-6 text-white">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
-              Channel Matrix
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.3em] text-white/60">
+              Channel Console
             </p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-brand-strong">
-              渠道列表
-            </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-soft">
-              同一个 Base URL 会根据你实际调用的网关路径，自动转发到
-              <span className="font-mono text-[13px] text-brand-strong"> /v1/chat/completions</span>
-              、
-              <span className="font-mono text-[13px] text-brand-strong"> /v1/embeddings</span>
-              和
-              <span className="font-mono text-[13px] text-brand-strong"> /v1/responses</span>
-              ，因此页面只保留一个统一的 OpenAI-compatible 接入视图。
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight">渠道策略</h1>
+            <p className="mt-3 max-w-[70ch] text-sm leading-6 text-white/80">
+              先维护渠道，再进入渠道详情抽屉管理模型与逻辑模型映射。
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <article className="rounded-[22px] border border-line-soft bg-white/72 px-4 py-4">
-              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">Health</p>
-              <p className="mt-3 text-2xl font-semibold tracking-tight text-brand-strong">
-                {`${activeChannels}/${channels.length || 0}`}
-              </p>
-              <p className="mt-2 text-sm text-ink-soft">活跃状态与库存规模同屏观察。</p>
-            </article>
-            <article className="rounded-[22px] border border-line-soft bg-white/72 px-4 py-4">
-              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">
-                Last Checks
-              </p>
-              <p className="mt-3 text-2xl font-semibold tracking-tight text-brand-strong">
-                {`${testedChannels}`.padStart(2, '0')}
-              </p>
-              <p className="mt-2 text-sm text-ink-soft">已通过最近一次健康测试的渠道数量。</p>
-            </article>
-          </div>
+          <Button className="bg-white text-accent-blue hover:bg-white/90" onClick={() => setIsCreateChannelOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />新增渠道
+          </Button>
         </div>
 
-        <div className="mt-6">
-          <DataTable caption="渠道列表">
-            <thead className="border-b border-line-soft bg-[rgba(18,70,61,0.04)] font-mono text-[11px] uppercase tracking-[0.18em] text-ink-soft">
-              <tr>
-                <th className="px-4 py-3 font-medium">渠道</th>
-                <th className="px-4 py-3 font-medium">Base URL</th>
-                <th className="px-4 py-3 font-medium">默认模型</th>
-                <th className="px-4 py-3 font-medium">状态</th>
-                <th className="px-4 py-3 font-medium">最近测试</th>
-                <th className="px-4 py-3 font-medium text-right">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {channels.map((channel) => (
-                <tr
-                  key={channel.id}
-                  className="border-b border-line-soft/70 last:border-b-0 hover:bg-[rgba(18,70,61,0.03)]"
-                >
-                  <td className="px-4 py-4 align-top">
-                    <p className="font-medium text-ink">{channel.name}</p>
-                    <p className="mt-1 text-xs text-ink-soft">{channel.id}</p>
-                  </td>
-                  <td className="px-4 py-4 align-top font-mono text-xs text-ink-soft">
-                    {channel.baseUrl}
-                  </td>
-                  <td className="px-4 py-4 align-top">
-                    <p className="font-medium text-brand-strong">{channel.defaultModelId}</p>
-                  </td>
-                  <td className="px-4 py-4 align-top">
-                    <StatusBadge
-                      status={channel.status}
-                      label={channel.status === 'active' ? 'active' : 'disabled'}
-                    />
-                  </td>
-                  <td className="px-4 py-4 align-top">
-                    <p className="text-sm font-medium text-ink">
-                      {getTestStatusLabel(channel.lastTestStatus)}
-                    </p>
-                    <p className="mt-1 text-xs text-ink-soft">{formatDateTime(channel.lastTestedAt)}</p>
-                    {channel.lastTestError ? (
-                      <p className="mt-2 text-xs text-alert">{channel.lastTestError}</p>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-4 align-top text-right">
-                    <button
-                      type="button"
-                      className="rounded-full border border-line-strong bg-white px-4 py-2 text-sm font-medium text-brand-strong transition hover:border-brand hover:text-brand"
-                      onClick={() => testChannelMutation.mutate(channel.id)}
-                    >
-                      测试渠道
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </DataTable>
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {[
+            { label: "渠道总数", value: `${channels.length}` },
+            { label: "活跃渠道", value: `${activeChannels}` },
+            { label: "测试通过", value: `${testedChannels}` },
+          ].map((item) => (
+            <div key={item.label} className="rounded-lg bg-white/10 p-4">
+              <p className="font-mono text-[10px] uppercase text-white/60">{item.label}</p>
+              <p className="mt-2 text-2xl font-semibold">{item.value}</p>
+            </div>
+          ))}
         </div>
-      </section>
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_320px]">
-        <section className="app-surface rounded-[30px] p-6">
-          <div className="flex flex-col gap-4 border-b border-line-soft pb-5 xl:flex-row xl:items-end xl:justify-between">
-            <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
-                Strategy Registry
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-brand-strong">
-                逻辑模型编排
-              </h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-soft">
-                以逻辑别名聚合多条路由，便于运营同屏核对渠道、价格、优先级与上游模型。
-              </p>
-            </div>
-            <div className="rounded-[22px] border border-line-soft bg-white/72 px-4 py-4 text-sm text-ink-soft">
-              新建逻辑模型后，routes 会按优先级直接出现在这里，便于复核编排结果。
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-4">
-            {logicalModels.map((logicalModel) => (
-              <article key={logicalModel.id} className="app-muted-surface rounded-[24px] p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h3 className="text-lg font-semibold text-brand-strong">{logicalModel.alias}</h3>
-                      <StatusBadge
-                        status={logicalModel.status}
-                        label={logicalModel.status === 'active' ? 'active' : logicalModel.status}
-                      />
-                    </div>
-                    <p className="mt-2 text-sm leading-6 text-ink-soft">
-                      {getLogicalModelDescription(logicalModel.description)}
-                    </p>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[240px]">
-                    <div className="rounded-[20px] border border-line-soft bg-white/80 px-4 py-3">
-                      <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">
-                        Routes
-                      </p>
-                      <p className="mt-2 text-2xl font-semibold tracking-tight text-brand-strong">
-                        {logicalModel.routes.length}
-                      </p>
-                    </div>
-                    <div className="rounded-[20px] border border-line-soft bg-white/80 px-4 py-3">
-                      <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">
-                        Updated
-                      </p>
-                      <p className="mt-2 text-sm font-medium text-ink">
-                        {formatDateTime(logicalModel.updatedAt)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-5 grid gap-3">
-                  {logicalModel.routes.map((route) => (
-                    <div
-                      key={route.id}
-                      className="grid gap-3 rounded-[20px] border border-line-soft bg-white/72 px-4 py-4 md:grid-cols-[1.3fr_1fr_0.8fr_0.8fr_0.6fr]"
-                    >
-                      <div>
-                        <p className="text-sm font-medium text-ink">{route.channelName}</p>
-                        <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-accent">
-                          {route.upstreamModelId}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.18em] text-ink-soft">输入 / 输出</p>
-                        <p className="mt-1 text-sm text-ink">
-                          {route.inputPricePer1m} / {route.outputPricePer1m}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.18em] text-ink-soft">币种</p>
-                        <p className="mt-1 text-sm text-ink">{route.currency}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.18em] text-ink-soft">优先级</p>
-                        <p className="mt-1 text-sm text-ink">{route.priority}</p>
-                      </div>
-                      <div className="md:text-right">
-                        <StatusBadge status={route.status} label={route.status} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <aside className="space-y-4">
-          <section className="app-surface rounded-[30px] p-6">
-            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
-              Intake Pattern
-            </p>
-            <h2 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">录入方式</h2>
-            <div className="mt-5 space-y-3 text-sm leading-6 text-ink-soft">
-              <p>新增渠道和新建逻辑模型都迁移到标准弹窗，避免录入区长期占据页面宽度。</p>
-              <p>主页面专注于状态、表格和编排结果，录入动作按需打开，减少运营切换成本。</p>
-            </div>
-          </section>
-
-          <section className="app-surface rounded-[30px] p-6">
-            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
-              Route Rules
-            </p>
-            <h2 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">编排提醒</h2>
-            <div className="mt-5 grid gap-3">
-              {[
-                ['统一接入', '渠道默认按 OpenAI-compatible 能力接入，不再拆分 API 类型。'],
-                ['多路优先级', '一个逻辑模型可挂多条 route，优先级越大越靠前。'],
-                ['价格复核', '录入时保持输入与输出价格成对更新，便于后续费用解释。'],
-              ].map(([label, detail]) => (
-                <article key={label} className="app-muted-surface rounded-[22px] p-4">
-                  <p className="font-medium text-ink">{label}</p>
-                  <p className="mt-2 text-sm leading-6 text-ink-soft">{detail}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-        </aside>
       </div>
 
-      <ModalShell
-        open={isCreateChannelModalOpen}
-        onClose={() => setIsCreateChannelModalOpen(false)}
-        eyebrow="Channel Intake"
-        title="新增渠道"
-        description="补充上游出口的基础信息，页面会继续沿用统一的 OpenAI-compatible 接入语义。"
-      >
-        <form
-          className="space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            createChannelMutation.mutate();
-          }}
-        >
-          <div className="block">
-            <p className="text-sm font-medium text-ink">API 类型</p>
-            <div className="mt-2 rounded-[18px] border border-line-soft bg-[rgba(18,70,61,0.05)] px-4 py-3">
-              <p className="font-medium text-brand-strong">OpenAI-compatible</p>
-              <p className="mt-1 text-sm leading-6 text-ink-soft">
-                自动兼容 `chat/completions`、`embeddings`、`responses` 三类常用接口。
-              </p>
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="block">
-              <label htmlFor="channel-name" className="text-sm font-medium text-ink">
-                渠道名称
-              </label>
-              <input
-                id="channel-name"
-                type="text"
-                value={channelForm.name}
-                onChange={(event) => setChannelForm((current) => ({ ...current, name: event.target.value }))}
-                className={fieldClassName}
-              />
-            </div>
-            <div className="block">
-              <label htmlFor="channel-default-model" className="text-sm font-medium text-ink">
-                默认模型
-              </label>
-              <input
-                id="channel-default-model"
-                type="text"
-                value={channelForm.defaultModelId}
-                onChange={(event) =>
-                  setChannelForm((current) => ({ ...current, defaultModelId: event.target.value }))
-                }
-                className={fieldClassName}
-              />
-            </div>
-          </div>
-          <div className="block">
-            <label htmlFor="channel-base-url" className="text-sm font-medium text-ink">
-              Base URL
-            </label>
-            <input
-              id="channel-base-url"
-              type="text"
-              value={channelForm.baseUrl}
-              onChange={(event) => setChannelForm((current) => ({ ...current, baseUrl: event.target.value }))}
-              className={fieldClassName}
-            />
-          </div>
-          <div className="block">
-            <label htmlFor="channel-api-key" className="text-sm font-medium text-ink">
-              API Key
-            </label>
-            <input
-              id="channel-api-key"
-              type="text"
-              value={channelForm.apiKey}
-              onChange={(event) => setChannelForm((current) => ({ ...current, apiKey: event.target.value }))}
-              className={fieldClassName}
-            />
-          </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>渠道列表</CardTitle>
+          <CardDescription>点击详情进入抽屉，查看该渠道的模型与逻辑模型。</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>渠道</TableHead>
+                <TableHead>Base URL</TableHead>
+                <TableHead>默认模型</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead>最近测试</TableHead>
+                <TableHead className="text-right">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {channels.map((channel) => {
+                const isTestingAnyChannel = testChannelMutation.isPending;
+                const isTestingCurrentChannel = isTestingAnyChannel && testChannelMutation.variables === channel.id;
 
-          <div className="flex flex-col-reverse gap-3 border-t border-line-soft pt-5 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              className="rounded-full border border-line-strong bg-white px-5 py-3 text-sm font-medium text-brand-strong transition hover:border-brand hover:text-brand"
-              onClick={() => setIsCreateChannelModalOpen(false)}
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              className="rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-strong"
-            >
-              保存渠道
-            </button>
-          </div>
-        </form>
-      </ModalShell>
+                return (
+                  <TableRow key={channel.id}>
+                    <TableCell>
+                      <p className="font-medium">{channel.name}</p>
+                      <p className="font-mono text-xs text-muted-foreground">{channel.id}</p>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">{channel.baseUrl}</TableCell>
+                    <TableCell className="font-medium">{channel.defaultModelId}</TableCell>
+                    <TableCell>
+                      <Badge variant={channel.status === "active" ? "success" : "secondary"}>
+                        {channel.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-sm">{getTestStatusLabel(channel.lastTestStatus)}</p>
+                      <p className="text-xs text-muted-foreground">{formatDateTime(channel.lastTestedAt)}</p>
+                      {channel.lastTestError ? <p className="mt-1 text-xs text-destructive">{channel.lastTestError}</p> : null}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setSelectedChannelId(channel.id)}>
+                          查看详情
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isTestingAnyChannel}
+                          onClick={() => testChannelMutation.mutate(channel.id)}
+                        >
+                          {isTestingCurrentChannel ? (
+                            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                          ) : (
+                            <TestTube className="mr-2 h-3 w-3" />
+                          )}
+                          {isTestingCurrentChannel ? "测试中..." : "测试渠道"}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
-      <ModalShell
-        open={isCreateLogicalModelModalOpen}
-        onClose={() => setIsCreateLogicalModelModalOpen(false)}
-        eyebrow="Strategy Composer"
-        title="新建逻辑模型"
-        description="为逻辑别名补充说明并录入 routes，保持与当前后端数据结构一致。"
-        size="xl"
-      >
-        <form
-          className="space-y-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            createLogicalModelMutation.mutate();
-          }}
-        >
-          <div className="grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
-            <div className="space-y-4">
-              <div className="block">
-                <label htmlFor="logical-model-alias" className="text-sm font-medium text-ink">
-                  逻辑模型别名
-                </label>
-                <input
-                  id="logical-model-alias"
-                  type="text"
-                  value={logicalModelForm.alias}
-                  onChange={(event) =>
-                    setLogicalModelForm((current) => ({ ...current, alias: event.target.value }))
-                  }
-                  className={fieldClassName}
-                />
-              </div>
-              <div className="block">
-                <label htmlFor="logical-model-description" className="text-sm font-medium text-ink">
-                  说明
-                </label>
-                <textarea
-                  id="logical-model-description"
-                  value={logicalModelForm.description}
-                  onChange={(event) =>
-                    setLogicalModelForm((current) => ({ ...current, description: event.target.value }))
-                  }
-                  rows={5}
-                  className={fieldClassName}
-                />
-              </div>
-              <div className="rounded-[22px] border border-line-soft bg-[rgba(18,70,61,0.04)] p-4 text-sm leading-6 text-ink-soft">
-                <p className="font-medium text-brand-strong">录入提醒</p>
-                <p className="mt-2">一个逻辑模型可以挂多条 route；运营台会按优先级展示这些编排结果。</p>
-              </div>
-            </div>
+      <Sheet open={Boolean(selectedChannelId)} onOpenChange={(open) => !open && setSelectedChannelId(null)}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl lg:max-w-4xl">
+          <SheetHeader>
+            <SheetTitle>渠道详情</SheetTitle>
+            <SheetDescription>
+              查看 {selectedChannel?.name ?? "当前渠道"} 的上游模型、逻辑模型映射和测试状态。
+            </SheetDescription>
+          </SheetHeader>
 
-            <div className="space-y-4">
-              {routeDrafts.map((route, index) => (
-                <div
-                  key={`draft-${index}`}
-                  className="rounded-[24px] border border-line-soft bg-[rgba(18,70,61,0.04)] p-4"
-                >
-                  <div className="mb-4 flex items-center justify-between">
-                    <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-accent">
-                      Route {index + 1}
-                    </p>
-                    {routeDrafts.length > 1 ? (
-                      <button
-                        type="button"
-                        className="text-sm text-alert"
-                        onClick={() =>
-                          setRouteDrafts((current) =>
-                            current.filter((_, routeIndex) => routeIndex !== index),
-                          )
-                        }
-                      >
-                        删除
-                      </button>
-                    ) : null}
+          <div className="mt-6 space-y-6">
+            {selectedChannel ? (
+              <div className="rounded-lg border bg-muted/30 p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-mono text-[10px] uppercase text-muted-foreground">Channel</p>
+                    <h3 className="mt-2 text-2xl font-semibold">{selectedChannel.name}</h3>
+                    <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{selectedChannel.baseUrl}</p>
                   </div>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button variant="outline" onClick={openEditChannelDialog}>
+                      <Pencil className="mr-2 h-4 w-4" />编辑渠道
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="text-destructive"
+                      onClick={() => deleteChannelMutation.mutate(selectedChannel.id)}
+                    >
+                      停用渠道
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
-                  <div className="grid gap-4">
-                    <div className="block">
-                      <label htmlFor={`route-channel-${index}`} className="text-sm font-medium text-ink">
-                        关联渠道
-                      </label>
-                      <select
-                        id={`route-channel-${index}`}
-                        value={route.channelId}
-                        onChange={(event) =>
-                          setRouteDrafts((current) =>
-                            current.map((item, routeIndex) =>
-                              routeIndex === index ? { ...item, channelId: event.target.value } : item,
-                            ),
-                          )
-                        }
-                        className={fieldClassName}
-                      >
-                        <option value="">选择渠道</option>
-                        {channels.map((channel) => (
-                          <option key={channel.id} value={channel.id}>
-                            {channel.name}
-                          </option>
-                        ))}
-                      </select>
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold">渠道模型</h3>
+                <Button variant="outline" size="sm" onClick={() => setIsAddModelOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />添加模型
+                </Button>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>上游模型</TableHead>
+                    <TableHead>价格</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {channelModels.map((model) => (
+                    <TableRow key={model.id}>
+                      <TableCell className="font-medium">{model.upstreamModelId}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {model.inputPricePer1m} / {model.outputPricePer1m} {model.currency}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={model.status === "active" ? "success" : "secondary"}>{model.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            aria-label={`编辑 ${model.upstreamModelId}`}
+                            onClick={() => openEditModelDialog(model)}
+                          >
+                            编辑
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => deleteChannelModelMutation.mutate({ channelId: model.channelId, modelId: model.id })}
+                          >
+                            停用
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </section>
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold">逻辑模型</h3>
+                <Button variant="outline" size="sm" onClick={() => setIsCreateLogicalModelOpen(true)}>
+                  <Route className="mr-2 h-4 w-4" />新建逻辑模型
+                </Button>
+              </div>
+              <div className="space-y-3">
+                {channelLogicalModels.map((logicalModel) => (
+                  <div key={logicalModel.id} className="rounded-lg border p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold">{logicalModel.alias}</h4>
+                          <Badge variant={logicalModel.status === "active" ? "success" : "secondary"}>
+                            {logicalModel.status}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">{logicalModel.description || "未填写说明"}</p>
+                      </div>
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label={`编辑 ${logicalModel.alias}`}
+                          onClick={() => openEditLogicalModelDialog(logicalModel)}
+                        >
+                          编辑
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive"
+                          onClick={() => deleteLogicalModelMutation.mutate(logicalModel.id)}
+                        >
+                          停用
+                        </Button>
+                      </div>
                     </div>
-                    <div className="block">
-                      <label htmlFor={`route-upstream-model-${index}`} className="text-sm font-medium text-ink">
-                        上游模型
-                      </label>
-                      <input
-                        id={`route-upstream-model-${index}`}
-                        type="text"
-                        value={route.upstreamModelId}
-                        onChange={(event) =>
-                          setRouteDrafts((current) =>
-                            current.map((item, routeIndex) =>
-                              routeIndex === index
-                                ? { ...item, upstreamModelId: event.target.value }
-                                : item,
-                            ),
-                          )
-                        }
-                        className={fieldClassName}
-                      />
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="block">
-                        <label htmlFor={`route-input-price-${index}`} className="text-sm font-medium text-ink">
-                          输入价格
-                        </label>
-                        <input
-                          id={`route-input-price-${index}`}
-                          type="text"
-                          value={route.inputPricePer1m}
-                          onChange={(event) =>
-                            setRouteDrafts((current) =>
-                              current.map((item, routeIndex) =>
-                                routeIndex === index
-                                  ? { ...item, inputPricePer1m: event.target.value }
-                                  : item,
-                              ),
-                            )
-                          }
-                          className={fieldClassName}
-                        />
-                      </div>
-                      <div className="block">
-                        <label htmlFor={`route-output-price-${index}`} className="text-sm font-medium text-ink">
-                          输出价格
-                        </label>
-                        <input
-                          id={`route-output-price-${index}`}
-                          type="text"
-                          value={route.outputPricePer1m}
-                          onChange={(event) =>
-                            setRouteDrafts((current) =>
-                              current.map((item, routeIndex) =>
-                                routeIndex === index
-                                  ? { ...item, outputPricePer1m: event.target.value }
-                                  : item,
-                              ),
-                            )
-                          }
-                          className={fieldClassName}
-                        />
-                      </div>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="block">
-                        <label htmlFor={`route-currency-${index}`} className="text-sm font-medium text-ink">
-                          币种
-                        </label>
-                        <input
-                          id={`route-currency-${index}`}
-                          type="text"
-                          value={route.currency}
-                          onChange={(event) =>
-                            setRouteDrafts((current) =>
-                              current.map((item, routeIndex) =>
-                                routeIndex === index ? { ...item, currency: event.target.value } : item,
-                              ),
-                            )
-                          }
-                          className={fieldClassName}
-                        />
-                      </div>
-                      <div className="block">
-                        <label htmlFor={`route-priority-${index}`} className="text-sm font-medium text-ink">
-                          优先级
-                        </label>
-                        <input
-                          id={`route-priority-${index}`}
-                          type="text"
-                          value={route.priority}
-                          onChange={(event) =>
-                            setRouteDrafts((current) =>
-                              current.map((item, routeIndex) =>
-                                routeIndex === index ? { ...item, priority: event.target.value } : item,
-                              ),
-                            )
-                          }
-                          className={fieldClassName}
-                        />
-                      </div>
+                    <div className="mt-3 space-y-2">
+                      {logicalModel.routes.map((route) => (
+                        <div key={route.id} className="rounded-md bg-muted/50 p-3 text-sm">
+                          <p className="font-medium">{route.upstreamModelId}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            priority {route.priority} / {route.inputPricePer1m} / {route.outputPricePer1m}
+                          </p>
+                        </div>
+                      ))}
                     </div>
                   </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={isCreateChannelOpen} onOpenChange={setIsCreateChannelOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>新增渠道</DialogTitle>
+            <DialogDescription>接入一个 OpenAI-compatible 上游。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <Label htmlFor="channel-name">渠道名称</Label>
+            <Input id="channel-name" value={channelForm.name} onChange={(event) => setChannelForm((c) => ({ ...c, name: event.target.value }))} />
+            <Label htmlFor="channel-base-url">Base URL</Label>
+            <Input id="channel-base-url" value={channelForm.baseUrl} onChange={(event) => setChannelForm((c) => ({ ...c, baseUrl: event.target.value }))} />
+            <Label htmlFor="channel-api-key">API Key</Label>
+            <Input id="channel-api-key" value={channelForm.apiKey} onChange={(event) => setChannelForm((c) => ({ ...c, apiKey: event.target.value }))} />
+            <Label htmlFor="channel-default-model">默认测试模型</Label>
+            <Input id="channel-default-model" value={channelForm.defaultModelId} onChange={(event) => setChannelForm((c) => ({ ...c, defaultModelId: event.target.value }))} />
+          </div>
+          <DialogFooter>
+            <Button onClick={() => createChannelMutation.mutate()}>保存渠道</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditChannelOpen} onOpenChange={setIsEditChannelOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>编辑渠道</DialogTitle>
+            <DialogDescription>更新渠道名称、地址、测试模型，API Key 留空则保持不变。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <Label htmlFor="edit-channel-name">渠道名称</Label>
+            <Input id="edit-channel-name" value={editChannelForm.name} onChange={(event) => setEditChannelForm((c) => ({ ...c, name: event.target.value }))} />
+            <Label htmlFor="edit-channel-base-url">Base URL</Label>
+            <Input id="edit-channel-base-url" value={editChannelForm.baseUrl} onChange={(event) => setEditChannelForm((c) => ({ ...c, baseUrl: event.target.value }))} />
+            <Label htmlFor="edit-channel-api-key">API Key</Label>
+            <Input id="edit-channel-api-key" value={editChannelForm.apiKey} onChange={(event) => setEditChannelForm((c) => ({ ...c, apiKey: event.target.value }))} />
+            <Label htmlFor="edit-channel-default-model">默认测试模型</Label>
+            <Input id="edit-channel-default-model" value={editChannelForm.defaultModelId} onChange={(event) => setEditChannelForm((c) => ({ ...c, defaultModelId: event.target.value }))} />
+          </div>
+          <DialogFooter>
+            <Button onClick={() => updateChannelMutation.mutate()}>保存修改</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAddModelOpen} onOpenChange={setIsAddModelOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>添加渠道模型</DialogTitle>
+            <DialogDescription>给当前渠道增加一个可用于路由的上游模型。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <Label htmlFor="channel-model-upstream-model-id">上游模型</Label>
+            <Input id="channel-model-upstream-model-id" value={modelForm.upstreamModelId} onChange={(event) => setModelForm((c) => ({ ...c, upstreamModelId: event.target.value }))} />
+            <Label htmlFor="channel-model-input-price">输入价格 / 1M</Label>
+            <Input id="channel-model-input-price" value={modelForm.inputPricePer1m} onChange={(event) => setModelForm((c) => ({ ...c, inputPricePer1m: event.target.value }))} />
+            <Label htmlFor="channel-model-output-price">输出价格 / 1M</Label>
+            <Input id="channel-model-output-price" value={modelForm.outputPricePer1m} onChange={(event) => setModelForm((c) => ({ ...c, outputPricePer1m: event.target.value }))} />
+            <Label htmlFor="channel-model-currency">币种</Label>
+            <Input id="channel-model-currency" value={modelForm.currency} onChange={(event) => setModelForm((c) => ({ ...c, currency: event.target.value }))} />
+          </div>
+          <DialogFooter>
+            <Button onClick={() => createModelMutation.mutate()}>保存模型</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(editingModelId)} onOpenChange={(open) => !open && setEditingModelId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>编辑渠道模型</DialogTitle>
+            <DialogDescription>修改该渠道内模型标识、价格和币种。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <Label htmlFor="edit-channel-model-upstream-model-id">上游模型</Label>
+            <Input id="edit-channel-model-upstream-model-id" value={editModelForm.upstreamModelId} onChange={(event) => setEditModelForm((c) => ({ ...c, upstreamModelId: event.target.value }))} />
+            <Label htmlFor="edit-channel-model-input-price">输入价格 / 1M</Label>
+            <Input id="edit-channel-model-input-price" value={editModelForm.inputPricePer1m} onChange={(event) => setEditModelForm((c) => ({ ...c, inputPricePer1m: event.target.value }))} />
+            <Label htmlFor="edit-channel-model-output-price">输出价格 / 1M</Label>
+            <Input id="edit-channel-model-output-price" value={editModelForm.outputPricePer1m} onChange={(event) => setEditModelForm((c) => ({ ...c, outputPricePer1m: event.target.value }))} />
+            <Label htmlFor="edit-channel-model-currency">币种</Label>
+            <Input id="edit-channel-model-currency" value={editModelForm.currency} onChange={(event) => setEditModelForm((c) => ({ ...c, currency: event.target.value }))} />
+          </div>
+          <DialogFooter>
+            <Button onClick={() => updateModelMutation.mutate()}>保存模型修改</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCreateLogicalModelOpen} onOpenChange={setIsCreateLogicalModelOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>新建逻辑模型</DialogTitle>
+            <DialogDescription>逻辑模型会按优先级绑定当前渠道中的一个或多个上游模型。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <Label htmlFor="logical-model-alias">逻辑模型别名</Label>
+            <Input id="logical-model-alias" value={logicalModelForm.alias} onChange={(event) => setLogicalModelForm((c) => ({ ...c, alias: event.target.value }))} />
+            <Label htmlFor="logical-model-description">说明</Label>
+            <Textarea id="logical-model-description" value={logicalModelForm.description} onChange={(event) => setLogicalModelForm((c) => ({ ...c, description: event.target.value }))} />
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <Label>路由</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addLogicalRoute}>
+                  <Plus className="mr-2 h-4 w-4" />添加路由
+                </Button>
+              </div>
+              {logicalModelForm.routes.map((route, index) => (
+                <div key={index} className="grid gap-3 rounded-md border bg-muted/30 p-3 sm:grid-cols-[1fr_120px_auto] sm:items-end">
+                  <div className="space-y-2">
+                    <Label htmlFor={`route-channel-model-${index}`}>渠道模型 {index + 1}</Label>
+                    <select
+                      id={`route-channel-model-${index}`}
+                      className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                      value={route.channelModelId}
+                      onChange={(event) => updateLogicalRoute(index, "channelModelId", event.target.value)}
+                    >
+                      <option value="">选择模型</option>
+                      {activeModelOptions.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.upstreamModelId}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`route-priority-${index}`}>优先级</Label>
+                    <Input
+                      id={`route-priority-${index}`}
+                      type="number"
+                      value={route.priority}
+                      onChange={(event) => updateLogicalRoute(index, "priority", event.target.value)}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={logicalModelForm.routes.length === 1}
+                    onClick={() => removeLogicalRoute(index)}
+                  >
+                    移除
+                  </Button>
                 </div>
               ))}
             </div>
           </div>
+          <DialogFooter>
+            <Button onClick={() => createLogicalModelMutation.mutate()}>保存逻辑模型</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-          <div className="flex flex-col gap-3 border-t border-line-soft pt-5 sm:flex-row sm:items-center sm:justify-between">
-            <button
-              type="button"
-              className="rounded-full border border-line-strong bg-white px-4 py-2 text-sm font-medium text-brand-strong transition hover:border-brand hover:text-brand"
-              onClick={() => setRouteDrafts((current) => [...current, emptyRouteDraft()])}
-            >
-              添加路由
-            </button>
-            <div className="flex flex-col-reverse gap-3 sm:flex-row">
-              <button
-                type="button"
-                className="rounded-full border border-line-strong bg-white px-5 py-3 text-sm font-medium text-brand-strong transition hover:border-brand hover:text-brand"
-                onClick={() => setIsCreateLogicalModelModalOpen(false)}
-              >
-                取消
-              </button>
-              <button
-                type="submit"
-                className="rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-strong"
-              >
-                保存逻辑模型
-              </button>
+      <Dialog open={Boolean(editingLogicalModelId)} onOpenChange={(open) => !open && setEditingLogicalModelId(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>编辑逻辑模型</DialogTitle>
+            <DialogDescription>调整逻辑模型别名、说明和当前渠道内的路由模型。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <Label htmlFor="edit-logical-model-alias">逻辑模型别名</Label>
+            <Input id="edit-logical-model-alias" value={editLogicalModelForm.alias} onChange={(event) => setEditLogicalModelForm((c) => ({ ...c, alias: event.target.value }))} />
+            <Label htmlFor="edit-logical-model-description">说明</Label>
+            <Textarea id="edit-logical-model-description" value={editLogicalModelForm.description} onChange={(event) => setEditLogicalModelForm((c) => ({ ...c, description: event.target.value }))} />
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <Label>路由</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addEditLogicalRoute}>
+                  <Plus className="mr-2 h-4 w-4" />添加路由
+                </Button>
+              </div>
+              {editLogicalModelForm.routes.map((route, index) => (
+                <div key={index} className="grid gap-3 rounded-md border bg-muted/30 p-3 sm:grid-cols-[1fr_120px_auto] sm:items-end">
+                  <div className="space-y-2">
+                    <Label htmlFor={`edit-route-channel-model-${index}`}>渠道模型 {index + 1}</Label>
+                    <select
+                      id={`edit-route-channel-model-${index}`}
+                      className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                      value={route.channelModelId}
+                      onChange={(event) => updateEditLogicalRoute(index, "channelModelId", event.target.value)}
+                    >
+                      <option value="">选择模型</option>
+                      {activeModelOptions.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.upstreamModelId}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`edit-route-priority-${index}`}>优先级</Label>
+                    <Input
+                      id={`edit-route-priority-${index}`}
+                      type="number"
+                      value={route.priority}
+                      onChange={(event) => updateEditLogicalRoute(index, "priority", event.target.value)}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={editLogicalModelForm.routes.length === 1}
+                    onClick={() => removeEditLogicalRoute(index)}
+                  >
+                    移除
+                  </Button>
+                </div>
+              ))}
             </div>
           </div>
-        </form>
-      </ModalShell>
+          <DialogFooter>
+            <Button onClick={() => updateLogicalModelMutation.mutate()}>保存逻辑模型修改</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -2,104 +2,57 @@
 @import '@fontsource/ibm-plex-mono/500.css';
 @import '@fontsource/ibm-plex-mono/600.css';
 @import 'tailwindcss';
+@plugin 'tailwindcss-animate';
 
 @theme {
   --font-sans: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   --font-mono: 'IBM Plex Mono', 'SFMono-Regular', monospace;
 
-  --color-canvas: oklch(0.96 0.01 170);
-  --color-canvas-strong: oklch(0.92 0.014 170);
-  --color-panel: oklch(0.995 0.002 170);
-  --color-panel-muted: oklch(0.975 0.006 170);
-  --color-line-soft: oklch(0.88 0.01 170);
-  --color-line-strong: oklch(0.76 0.02 170);
-  --color-ink: oklch(0.24 0.02 170);
-  --color-ink-soft: oklch(0.48 0.016 170);
-  --color-brand: oklch(0.33 0.05 168);
-  --color-brand-strong: oklch(0.26 0.04 168);
-  --color-accent: oklch(0.54 0.07 168);
-  --color-alert: oklch(0.56 0.08 45);
-}
+  /* Ant Design Pro blue-primary palette */
+  --color-background: oklch(0.96 0.003 260);
+  --color-foreground: oklch(0.15 0.02 260);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.15 0.02 260);
+  --color-primary: oklch(0.58 0.23 260);
+  --color-primary-foreground: oklch(1 0 0);
+  --color-secondary: oklch(0.955 0.005 260);
+  --color-secondary-foreground: oklch(0.35 0.03 260);
+  --color-muted: oklch(0.955 0.005 260);
+  --color-muted-foreground: oklch(0.50 0.02 260);
+  --color-accent: oklch(0.60 0.22 260);
+  --color-accent-foreground: oklch(1 0 0);
+  --color-destructive: oklch(0.55 0.25 25);
+  --color-destructive-foreground: oklch(1 0 0);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.15 0.02 260);
+  --color-border: oklch(0.90 0.005 260);
+  --color-input: oklch(0.90 0.005 260);
+  --color-ring: oklch(0.58 0.23 260);
 
-:root {
-  color: var(--color-ink);
-  background:
-    radial-gradient(circle at top left, color-mix(in oklab, var(--color-accent) 16%, transparent), transparent 28%),
-    radial-gradient(circle at top right, color-mix(in oklab, var(--color-brand) 12%, transparent), transparent 24%),
-    linear-gradient(180deg, var(--color-canvas) 0%, var(--color-canvas-strong) 100%);
-  font-family: var(--font-sans);
-  color-scheme: light;
-}
+  /* Light sidebar aligned with the console surface palette */
+  --color-sidebar: oklch(0.975 0.012 255);
+  --color-sidebar-foreground: oklch(0.22 0.035 260);
+  --color-sidebar-accent: oklch(0.935 0.026 255);
 
-html,
-body,
-#root {
-  min-height: 100%;
-}
+  /* Multi-color accents */
+  --color-accent-blue: oklch(0.58 0.23 260);
+  --color-accent-green: oklch(0.67 0.23 145);
+  --color-accent-orange: oklch(0.67 0.18 65);
+  --color-accent-purple: oklch(0.45 0.20 300);
+  --color-accent-cyan: oklch(0.65 0.13 195);
+  --color-accent-pink: oklch(0.54 0.23 0);
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background: inherit;
+  --radius-sm: 0.625rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
 }
 
 * {
-  box-sizing: border-box;
+  border-color: var(--color-border);
 }
 
-::selection {
-  background: color-mix(in oklab, var(--color-accent) 24%, white);
-}
-
-.app-surface {
-  border: 1px solid color-mix(in oklab, var(--color-line-soft) 82%, white);
-  background: var(--color-panel);
-  box-shadow: 0 18px 48px -30px rgba(10, 34, 29, 0.14);
-}
-
-.app-muted-surface {
-  border: 1px solid color-mix(in oklab, var(--color-line-soft) 88%, white);
-  background: var(--color-panel-muted);
-  box-shadow: 0 12px 32px -24px rgba(10, 34, 29, 0.14);
-}
-
-.app-status-badge--success {
-  border-color: color-mix(in oklab, var(--color-accent) 26%, white);
-  background: color-mix(in oklab, var(--color-accent) 14%, white);
-  color: var(--color-brand);
-}
-
-.app-status-badge--warning {
-  border-color: color-mix(in oklab, var(--color-alert) 26%, white);
-  background: color-mix(in oklab, var(--color-alert) 12%, white);
-  color: var(--color-alert);
-}
-
-.app-status-badge--danger {
-  border-color: color-mix(in oklab, var(--color-alert) 34%, white);
-  background: color-mix(in oklab, var(--color-alert) 18%, white);
-  color: color-mix(in oklab, var(--color-alert) 78%, var(--color-brand-strong));
-}
-
-.app-status-badge--neutral {
-  border-color: color-mix(in oklab, var(--color-line-strong) 60%, white);
-  background: color-mix(in oklab, var(--color-panel-muted) 94%, white);
-  color: var(--color-ink-soft);
-}
-
-.grid-glow {
-  position: relative;
-  overflow: hidden;
-}
-
-.grid-glow::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(color-mix(in oklab, var(--color-brand) 8%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in oklab, var(--color-brand) 8%, transparent) 1px, transparent 1px);
-  background-size: 24px 24px;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 100%);
-  pointer-events: none;
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
 }

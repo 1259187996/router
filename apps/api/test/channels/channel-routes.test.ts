@@ -197,6 +197,312 @@ describe('channel routes', () => {
     }
   });
 
+  it('updates and disables channels and manages multiple channel models in channel detail', async () => {
+    const app = await buildApp({ logger: false, db: db.db });
+
+    try {
+      const { cookie: adminCookie } = await loginAsAdmin(app);
+
+      const createChannel = await app.inject({
+        method: 'POST',
+        url: '/internal/channels',
+        headers: { cookie: adminCookie },
+        payload: {
+          name: 'multi-model-channel',
+          baseUrl: upstream.baseUrl,
+          apiKey: 'sk-test',
+          defaultModelId: 'gpt-4o'
+        }
+      });
+
+      expect(createChannel.statusCode).toBe(201);
+      const channelId = createChannel.json().channel.id as string;
+
+      const firstModel = await app.inject({
+        method: 'POST',
+        url: `/internal/channels/${channelId}/models`,
+        headers: { cookie: adminCookie },
+        payload: {
+          upstreamModelId: 'gpt-4o',
+          inputPricePer1m: '5.0000',
+          outputPricePer1m: '15.0000',
+          currency: 'USD'
+        }
+      });
+
+      expect(firstModel.statusCode).toBe(201);
+
+      const zeroPricedModel = await app.inject({
+        method: 'POST',
+        url: `/internal/channels/${channelId}/models`,
+        headers: { cookie: adminCookie },
+        payload: {
+          upstreamModelId: 'gpt-5.4',
+          inputPricePer1m: '0.0000',
+          outputPricePer1m: '0.0000',
+          currency: 'USD'
+        }
+      });
+
+      expect(zeroPricedModel.statusCode).toBe(201);
+      expect(zeroPricedModel.json().model).toMatchObject({
+        channelId,
+        upstreamModelId: 'gpt-5.4',
+        inputPricePer1m: '0.0000',
+        outputPricePer1m: '0.0000',
+        currency: 'USD',
+        status: 'active'
+      });
+
+      const secondModel = await app.inject({
+        method: 'POST',
+        url: `/internal/channels/${channelId}/models`,
+        headers: { cookie: adminCookie },
+        payload: {
+          upstreamModelId: 'gpt-4o-mini',
+          inputPricePer1m: '1.0000',
+          outputPricePer1m: '2.0000',
+          currency: 'USD'
+        }
+      });
+
+      expect(secondModel.statusCode).toBe(201);
+
+      const updateChannel = await app.inject({
+        method: 'PATCH',
+        url: `/internal/channels/${channelId}`,
+        headers: { cookie: adminCookie },
+        payload: {
+          name: 'renamed-multi-model-channel',
+          baseUrl: upstreamWithBasePath.baseUrl,
+          defaultModelId: 'gpt-4o-mini'
+        }
+      });
+
+      expect(updateChannel.statusCode).toBe(200);
+      expect(updateChannel.json().channel).toMatchObject({
+        id: channelId,
+        name: 'renamed-multi-model-channel',
+        baseUrl: upstreamWithBasePath.baseUrl,
+        defaultModelId: 'gpt-4o-mini',
+        status: 'active'
+      });
+
+      const updateModel = await app.inject({
+        method: 'PATCH',
+        url: `/internal/channels/${channelId}/models/${secondModel.json().model.id as string}`,
+        headers: { cookie: adminCookie },
+        payload: {
+          upstreamModelId: 'gpt-4o-mini-2026',
+          inputPricePer1m: '1.5000',
+          outputPricePer1m: '3.0000',
+          currency: 'USD',
+          status: 'active'
+        }
+      });
+
+      expect(updateModel.statusCode).toBe(200);
+      expect(updateModel.json().model).toMatchObject({
+        id: secondModel.json().model.id,
+        channelId,
+        upstreamModelId: 'gpt-4o-mini-2026',
+        inputPricePer1m: '1.5000',
+        outputPricePer1m: '3.0000',
+        status: 'active'
+      });
+
+      const detail = await app.inject({
+        method: 'GET',
+        url: `/internal/channels/${channelId}`,
+        headers: { cookie: adminCookie }
+      });
+
+      expect(detail.statusCode).toBe(200);
+      expect(detail.json()).toMatchObject({
+        channel: {
+          id: channelId,
+          name: 'renamed-multi-model-channel'
+        },
+        models: expect.arrayContaining([
+          expect.objectContaining({
+            upstreamModelId: 'gpt-4o',
+            status: 'active'
+          }),
+          expect.objectContaining({
+            upstreamModelId: 'gpt-4o-mini-2026',
+            inputPricePer1m: '1.5000',
+            outputPricePer1m: '3.0000',
+            status: 'active'
+          })
+        ])
+      });
+
+      const deleteModel = await app.inject({
+        method: 'DELETE',
+        url: `/internal/channels/${channelId}/models/${firstModel.json().model.id as string}`,
+        headers: { cookie: adminCookie }
+      });
+
+      expect(deleteModel.statusCode).toBe(204);
+
+      const deleteChannel = await app.inject({
+        method: 'DELETE',
+        url: `/internal/channels/${channelId}`,
+        headers: { cookie: adminCookie }
+      });
+
+      expect(deleteChannel.statusCode).toBe(204);
+
+      const listChannels = await app.inject({
+        method: 'GET',
+        url: '/internal/channels',
+        headers: { cookie: adminCookie }
+      });
+
+      expect(listChannels.statusCode).toBe(200);
+      expect(listChannels.json().channels.find((channel: { id: string }) => channel.id === channelId)).toMatchObject({
+        id: channelId,
+        status: 'disabled'
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('updates and disables logical models and exposes channel scoped logical models', async () => {
+    const app = await buildApp({ logger: false, db: db.db });
+
+    try {
+      const { cookie: adminCookie } = await loginAsAdmin(app);
+
+      const channel = await app.inject({
+        method: 'POST',
+        url: '/internal/channels',
+        headers: { cookie: adminCookie },
+        payload: {
+          name: 'logical-model-drawer-channel',
+          baseUrl: upstream.baseUrl,
+          apiKey: 'sk-test',
+          defaultModelId: 'gpt-4o'
+        }
+      });
+
+      expect(channel.statusCode).toBe(201);
+
+      const channelModel = await app.inject({
+        method: 'POST',
+        url: `/internal/channels/${channel.json().channel.id as string}/models`,
+        headers: { cookie: adminCookie },
+        payload: {
+          upstreamModelId: 'gpt-4o',
+          inputPricePer1m: '5.0000',
+          outputPricePer1m: '15.0000',
+          currency: 'USD'
+        }
+      });
+
+      expect(channelModel.statusCode).toBe(201);
+
+      const createLogicalModel = await app.inject({
+        method: 'POST',
+        url: '/internal/logical-models',
+        headers: { cookie: adminCookie },
+        payload: {
+          alias: 'drawer-model',
+          description: 'before',
+          routes: [
+            {
+              channelId: channel.json().channel.id as string,
+              channelModelId: channelModel.json().model.id as string,
+              priority: 1
+            }
+          ]
+        }
+      });
+
+      expect(createLogicalModel.statusCode).toBe(201);
+
+      const updateLogicalModel = await app.inject({
+        method: 'PATCH',
+        url: `/internal/logical-models/${createLogicalModel.json().logicalModel.id as string}`,
+        headers: { cookie: adminCookie },
+        payload: {
+          alias: 'drawer-model-renamed',
+          description: 'after',
+          routes: [
+            {
+              channelId: channel.json().channel.id as string,
+              upstreamModelId: 'gpt-4o-mini',
+              inputPricePer1m: '1.0000',
+              outputPricePer1m: '2.0000',
+              currency: 'USD',
+              priority: 5
+            }
+          ]
+        }
+      });
+
+      expect(updateLogicalModel.statusCode).toBe(200);
+      expect(updateLogicalModel.json().logicalModel).toMatchObject({
+        alias: 'drawer-model-renamed',
+        description: 'after',
+        status: 'active'
+      });
+      expect(updateLogicalModel.json().routes).toEqual([
+        expect.objectContaining({
+          channelId: channel.json().channel.id,
+          upstreamModelId: 'gpt-4o-mini',
+          inputPricePer1m: '1.0000',
+          outputPricePer1m: '2.0000',
+          priority: 5,
+          status: 'active'
+        })
+      ]);
+
+      const detail = await app.inject({
+        method: 'GET',
+        url: `/internal/channels/${channel.json().channel.id as string}`,
+        headers: { cookie: adminCookie }
+      });
+
+      expect(detail.statusCode).toBe(200);
+      expect(detail.json().logicalModels).toEqual([
+        expect.objectContaining({
+          id: createLogicalModel.json().logicalModel.id,
+          alias: 'drawer-model-renamed',
+          routes: [
+            expect.objectContaining({
+              upstreamModelId: 'gpt-4o-mini',
+              priority: 5
+            })
+          ]
+        })
+      ]);
+
+      const deleteLogicalModel = await app.inject({
+        method: 'DELETE',
+        url: `/internal/logical-models/${createLogicalModel.json().logicalModel.id as string}`,
+        headers: { cookie: adminCookie }
+      });
+
+      expect(deleteLogicalModel.statusCode).toBe(204);
+
+      const listLogicalModels = await app.inject({
+        method: 'GET',
+        url: '/internal/logical-models',
+        headers: { cookie: adminCookie }
+      });
+
+      expect(listLogicalModels.statusCode).toBe(200);
+      expect(listLogicalModels.json().logicalModels[0]).toMatchObject({
+        id: createLogicalModel.json().logicalModel.id,
+        status: 'disabled'
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it('lists owned channels without secrets and logical models with priority-sorted routes', async () => {
     const app = await buildApp({ logger: false, db: db.db });
 

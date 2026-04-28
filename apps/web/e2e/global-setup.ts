@@ -8,18 +8,21 @@ import path from 'node:path';
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const runtimeDir = path.join(rootDir, '.playwright-runtime');
 const processFile = path.join(runtimeDir, 'e2e-processes.json');
-const e2eDatabaseUrl = 'postgres://router:router@127.0.0.1:5432/router_e2e';
 
-function e2eEnv(extra: Record<string, string> = {}) {
+function createDatabaseUrl(databaseName: string, postgresPort: number) {
+  return `postgres://router:router@127.0.0.1:${postgresPort}/${databaseName}`;
+}
+
+function e2eEnv(postgresPort: number, extra: Record<string, string> = {}) {
   return {
     ...process.env,
-    DATABASE_URL: e2eDatabaseUrl,
-    TEST_DATABASE_URL: 'postgres://router:router@127.0.0.1:5432/router_test',
+    DATABASE_URL: createDatabaseUrl('router_e2e', postgresPort),
+    TEST_DATABASE_URL: createDatabaseUrl('router_test', postgresPort),
     CREATE_DATABASE_BEFORE_MIGRATE: 'true',
     HOST: '127.0.0.1',
     PORT: '3001',
-    ADMIN_EMAIL: 'admin@example.com',
-    ADMIN_PASSWORD_HASH: 'change-me',
+    ADMIN_EMAIL: 'admin',
+    ADMIN_PASSWORD_HASH: '$argon2id$v=19$m=65536,t=3,p=4$2ZUI/3GPEaN1FWA8LrybwA$cJn1yIT9IG/XoG2yjVBcbDMRWUYtT4fO6OfTqstbJOs',
     CHANNEL_KEY_ENCRYPTION_SECRET: 'dev-test-channel-key-encryption-secret-32',
     ALLOW_PRIVATE_UPSTREAM_BASE_URLS: 'true',
     CHANNEL_TEST_TIMEOUT_MS: '5000',
@@ -31,6 +34,32 @@ function e2eEnv(extra: Record<string, string> = {}) {
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function canListenOnPort(port: number) {
+  return await new Promise<boolean>((resolve) => {
+    const server = net.createServer();
+
+    server.once('error', () => {
+      resolve(false);
+    });
+
+    server.listen(port, '0.0.0.0', () => {
+      server.close(() => resolve(true));
+    });
+  });
+}
+
+async function choosePostgresPort() {
+  const preferredPorts = [5432, 55432, 15432];
+
+  for (const port of preferredPorts) {
+    if (await canListenOnPort(port)) {
+      return port;
+    }
+  }
+
+  throw new Error('Unable to reserve a local port for Playwright postgres');
 }
 
 async function waitForPort(port: number, host: string, timeoutMs: number) {
@@ -136,32 +165,47 @@ export default async function globalSetup() {
     // ignore missing runtime file
   }
 
+  const postgresPort = await choosePostgresPort();
+
+  try {
+    execSync('docker compose rm -sf postgres', {
+      cwd: rootDir,
+      env: process.env,
+      stdio: 'ignore',
+    });
+  } catch {
+    // ignore missing or already-removed containers
+  }
+
   execSync('docker compose up -d postgres', {
     cwd: rootDir,
-    env: process.env,
+    env: {
+      ...process.env,
+      POSTGRES_HOST_PORT: String(postgresPort),
+    },
     stdio: 'inherit',
   });
 
-  await waitForPort(5432, '127.0.0.1', 30_000);
+  await waitForPort(postgresPort, '127.0.0.1', 30_000);
   await waitForPostgres(30_000);
 
   execSync('pnpm --filter @router/api db:migrate', {
     cwd: rootDir,
-    env: e2eEnv(),
+    env: e2eEnv(postgresPort),
     stdio: 'inherit',
   });
   execSync('pnpm --filter @router/api db:seed-e2e', {
     cwd: rootDir,
-    env: e2eEnv(),
+    env: e2eEnv(postgresPort),
     stdio: 'inherit',
   });
 
   const pids = [
-    spawnDetached('pnpm --filter @router/api exec tsx scripts/mock-upstream.ts', e2eEnv()),
-    spawnDetached('pnpm --filter @router/api exec tsx src/server.ts', e2eEnv()),
+    spawnDetached('pnpm --filter @router/api exec tsx scripts/mock-upstream.ts', e2eEnv(postgresPort)),
+    spawnDetached('pnpm --filter @router/api exec tsx src/server.ts', e2eEnv(postgresPort)),
     spawnDetached(
       'pnpm --filter @router/web exec vite --host 127.0.0.1 --port 3000',
-      e2eEnv({
+      e2eEnv(postgresPort, {
         VITE_API_PROXY_TARGET: 'http://127.0.0.1:3001',
       }),
     ),

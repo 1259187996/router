@@ -14,7 +14,7 @@ import { registerTokenRoutes } from './modules/tokens/routes.js';
 import { LogsRepository } from './modules/logs/repository.js';
 import { LogsService } from './modules/logs/service.js';
 import { registerLogRoutes } from './modules/logs/routes.js';
-import { registerSessionPlugin } from './plugins/session.js';
+import { createSessionCookieOptions, registerSessionPlugin } from './plugins/session.js';
 import { registerErrorHandler } from './plugins/errors.js';
 import { registerGatewayAuthPlugin } from './plugins/gateway-auth.js';
 import { registerOpenAiRoutes } from './modules/gateway/openai-routes.js';
@@ -46,12 +46,16 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const channelRuntimeOptions = await loadChannelRuntimeOptions(options);
   const channelsService = new ChannelsService(channelsRepository, channelRuntimeOptions);
   const tokensRepository = new TokensRepository(appDb);
-  const tokenService = new TokenService(tokensRepository);
+  const tokenService = new TokenService(tokensRepository, {
+    tokenEncryptionSecret: channelRuntimeOptions.channelKeyEncryptionSecret
+  });
   const logsRepository = new LogsRepository(appDb);
   const logsService = new LogsService(logsRepository);
   await registerSessionPlugin(app, authService);
   await registerGatewayAuthPlugin(app, tokenService);
-  await registerAuthRoutes(app);
+  await registerAuthRoutes(app, {
+    sessionCookieOptions: createSessionCookieOptions(channelRuntimeOptions.sessionCookieSecure)
+  });
   await registerChannelRoutes(app, channelsService);
   await registerTokenRoutes(app, tokenService);
   await registerLogRoutes(app, logsService);
@@ -79,6 +83,7 @@ async function loadChannelRuntimeOptions(options: BuildAppOptions) {
     channelKeyEncryptionSecret:
       options.channelKeyEncryptionSecret ?? env.CHANNEL_KEY_ENCRYPTION_SECRET,
     channelTestLookup: options.channelTestLookup,
-    channelTestTimeoutMs: options.channelTestTimeoutMs ?? env.CHANNEL_TEST_TIMEOUT_MS
+    channelTestTimeoutMs: options.channelTestTimeoutMs ?? env.CHANNEL_TEST_TIMEOUT_MS,
+    sessionCookieSecure: env.SESSION_COOKIE_SECURE
   };
 }

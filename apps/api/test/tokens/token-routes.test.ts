@@ -72,7 +72,7 @@ describe('token routes', () => {
   beforeAll(db.start);
   afterAll(db.stop);
 
-  it('creates a token and only returns the raw secret once', async () => {
+  it('creates a token and returns the recoverable raw secret without exposing the hash', async () => {
     const app = await buildApp({ logger: false, db: db.db });
 
     try {
@@ -110,6 +110,8 @@ describe('token routes', () => {
 
       expect(storedToken.tokenHash).toBe(expectedHash);
       expect(storedToken.tokenHash).not.toBe(createdToken.rawToken);
+      expect(storedToken.tokenEncrypted).not.toBe(createdToken.rawToken);
+      expect(storedToken.tokenEncrypted).toBeTruthy();
       expect(JSON.stringify(storedToken)).not.toContain(createdToken.rawToken);
 
       const list = await app.inject({
@@ -127,15 +129,16 @@ describe('token routes', () => {
         budgetStatus: 'available',
         status: 'active'
       });
-      expect(list.json().tokens[0].rawToken).toBeUndefined();
+      expect(list.json().tokens[0].rawToken).toBe(createdToken.rawToken);
       expect(list.json().tokens[0].tokenHash).toBeUndefined();
+      expect(list.json().tokens[0].tokenEncrypted).toBeUndefined();
       expect(list.json().tokens[0].logicalModelAlias).toBeUndefined();
     } finally {
       await app.close();
     }
   });
 
-  it('revokes a token and rejects it for gateway bearer auth', async () => {
+  it('deletes a token and rejects it for gateway bearer auth', async () => {
     const app = await buildApp({ logger: false, db: db.db });
     await registerGatewayProbeRoute(app);
 
@@ -181,13 +184,13 @@ describe('token routes', () => {
       expect(lowerCaseAuthorized.statusCode).toBe(200);
       expect(lowerCaseAuthorized.json()).toEqual({ tokenId });
 
-      const revoke = await app.inject({
+      const deleteToken = await app.inject({
         method: 'DELETE',
         url: `/internal/tokens/${tokenId}`,
         headers: { cookie }
       });
 
-      expect(revoke.statusCode).toBe(204);
+      expect(deleteToken.statusCode).toBe(204);
 
       const list = await app.inject({
         method: 'GET',
@@ -196,10 +199,15 @@ describe('token routes', () => {
       });
 
       expect(list.statusCode).toBe(200);
-      expect(list.json().tokens[0]).toMatchObject({
-        id: tokenId,
-        status: 'revoked'
-      });
+      expect(list.json().tokens.find((token: { id: string }) => token.id === tokenId)).toBeUndefined();
+
+      const [storedTokenAfterDelete] = await db.db
+        .select()
+        .from(apiTokens)
+        .where(eq(apiTokens.id, tokenId))
+        .limit(1);
+
+      expect(storedTokenAfterDelete).toBeUndefined();
 
       const rejected = await app.inject({
         method: 'GET',
@@ -213,6 +221,93 @@ describe('token routes', () => {
       expect(rejected.json()).toEqual({
         error: 'Unauthorized',
         gatewayToken: null
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('gets and updates a token while keeping its raw secret available for display', async () => {
+    const app = await buildApp({ logger: false, db: db.db });
+
+    try {
+      const { cookie } = await loginAsAdmin(app);
+      const logicalModelId = await seedLogicalModel(db.db);
+      const replacementLogicalModelId = await seedLogicalModel(db.db);
+
+      const create = await app.inject({
+        method: 'POST',
+        url: '/internal/tokens',
+        headers: { cookie },
+        payload: {
+          name: 'editable-token',
+          logicalModelId,
+          budgetLimitUsd: '10.00'
+        }
+      });
+
+      expect(create.statusCode).toBe(201);
+      const tokenId = create.json().token.id as string;
+      const rawToken = create.json().token.rawToken as string;
+
+      const detail = await app.inject({
+        method: 'GET',
+        url: `/internal/tokens/${tokenId}`,
+        headers: { cookie }
+      });
+
+      expect(detail.statusCode).toBe(200);
+      expect(detail.json().token).toMatchObject({
+        id: tokenId,
+        name: 'editable-token',
+        logicalModelId,
+        budgetLimitUsd: '10.00',
+        status: 'active'
+      });
+      expect(detail.json().token.rawToken).toBe(rawToken);
+      expect(detail.json().token.tokenHash).toBeUndefined();
+      expect(detail.json().token.tokenEncrypted).toBeUndefined();
+
+      const update = await app.inject({
+        method: 'PATCH',
+        url: `/internal/tokens/${tokenId}`,
+        headers: { cookie },
+        payload: {
+          name: 'edited-token',
+          logicalModelId: replacementLogicalModelId,
+          budgetLimitUsd: '25.50',
+          expiresAt: '2026-12-31T00:00:00.000Z',
+          status: 'active'
+        }
+      });
+
+      expect(update.statusCode).toBe(200);
+      expect(update.json().token).toMatchObject({
+        id: tokenId,
+        name: 'edited-token',
+        logicalModelId: replacementLogicalModelId,
+        budgetLimitUsd: '25.50',
+        budgetUsedUsd: '0.00',
+        budgetStatus: 'available',
+        status: 'active',
+        expiresAt: '2026-12-31T00:00:00.000Z'
+      });
+      expect(update.json().token.rawToken).toBe(rawToken);
+      expect(update.json().token.tokenHash).toBeUndefined();
+      expect(update.json().token.tokenEncrypted).toBeUndefined();
+
+      const list = await app.inject({
+        method: 'GET',
+        url: '/internal/tokens',
+        headers: { cookie }
+      });
+
+      expect(list.statusCode).toBe(200);
+      expect(list.json().tokens[0]).toMatchObject({
+        id: tokenId,
+        name: 'edited-token',
+        logicalModelId: replacementLogicalModelId,
+        budgetLimitUsd: '25.50'
       });
     } finally {
       await app.close();
@@ -262,13 +357,48 @@ describe('token routes', () => {
       expect(otherList.statusCode).toBe(200);
       expect(otherList.json().tokens).toEqual([]);
 
-      const revoke = await app.inject({
+      const deleteByOtherUser = await app.inject({
         method: 'DELETE',
         url: `/internal/tokens/${ownerCreate.json().token.id as string}`,
         headers: { cookie: otherUserCookie }
       });
 
-      expect(revoke.statusCode).toBe(404);
+      expect(deleteByOtherUser.statusCode).toBe(404);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects turning a token into a revoked status through update', async () => {
+    const app = await buildApp({ logger: false, db: db.db });
+
+    try {
+      const { cookie } = await loginAsAdmin(app);
+      const logicalModelId = await seedLogicalModel(db.db);
+
+      const create = await app.inject({
+        method: 'POST',
+        url: '/internal/tokens',
+        headers: { cookie },
+        payload: {
+          name: 'delete-only-token',
+          logicalModelId,
+          budgetLimitUsd: '10.00'
+        }
+      });
+
+      expect(create.statusCode).toBe(201);
+
+      const update = await app.inject({
+        method: 'PATCH',
+        url: `/internal/tokens/${create.json().token.id as string}`,
+        headers: { cookie },
+        payload: {
+          status: 'revoked'
+        }
+      });
+
+      expect(update.statusCode).toBe(400);
     } finally {
       await app.close();
     }

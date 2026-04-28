@@ -9,8 +9,19 @@ export class LogsServiceError extends Error {
 export class LogsService {
   constructor(private readonly repository: LogsRepository) {}
 
-  async listLogs(userId: string) {
-    return this.repository.listLogsByUserId(userId);
+  async listLogs(
+    userId: string,
+    input: {
+      apiTokenId?: string;
+      page: number;
+      pageSize: number;
+    }
+  ) {
+    return this.repository.listLogsByUserId(userId, input);
+  }
+
+  async getOverview(userId: string) {
+    return this.repository.getOverviewByUserId(userId);
   }
 
   async getLogDetail(userId: string, logId: string) {

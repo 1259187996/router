@@ -20,8 +20,11 @@ const envSchema = z.object({
     : z.string().url(),
   TEST_DATABASE_URL: z.string().url().default('postgres://router:router@localhost:5432/router_test'),
   CREATE_DATABASE_BEFORE_MIGRATE: booleanStringSchema,
-  ADMIN_EMAIL: z.string().email().default('admin@example.com'),
-  ADMIN_PASSWORD_HASH: z.string().min(1).default('change-me'),
+  ADMIN_EMAIL: z.string().trim().min(1).default('admin'),
+  ADMIN_PASSWORD_HASH: z
+    .string()
+    .min(1)
+    .default('$argon2id$v=19$m=65536,t=3,p=4$2ZUI/3GPEaN1FWA8LrybwA$cJn1yIT9IG/XoG2yjVBcbDMRWUYtT4fO6OfTqstbJOs'),
   ALLOW_PRIVATE_UPSTREAM_BASE_URLS: z
     .enum(['true', 'false'])
     .default(isLocalRuntime ? 'true' : 'false')

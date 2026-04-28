@@ -8,7 +8,7 @@ import {
   userIdSchema
 } from './schema.js';
 import { AuthServiceError } from './service.js';
-import { sessionCookieName, sessionCookieOptions } from '../../plugins/session.js';
+import { sessionCookieName, type SessionCookieOptions } from '../../plugins/session.js';
 
 function toUserResponse(user: {
   id: string;
@@ -57,7 +57,12 @@ function sendRouteError(error: unknown, reply: FastifyReply) {
   throw error;
 }
 
-export async function registerAuthRoutes(fastify: FastifyInstance) {
+export async function registerAuthRoutes(
+  fastify: FastifyInstance,
+  options: { sessionCookieOptions: SessionCookieOptions }
+) {
+  const { sessionCookieOptions } = options;
+
   fastify.post('/auth/login', async (request, reply) => {
     try {
       const body = loginBodySchema.parse(request.body);

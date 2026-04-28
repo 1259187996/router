@@ -688,6 +688,70 @@ describe('gateway responses route', () => {
     }
   });
 
+  it('fails over when the first upstream event is a generic error event before any downstream bytes are sent', async () => {
+    const { app, baseUrl } = await buildStartedApp();
+
+    try {
+      const token = await seedGatewayToken(db.db, primaryUpstream.baseUrl, {
+        alias: 'responses-generic-error-prefirstbyte-alias',
+        channelKeyEncryptionSecret,
+        fallbackBaseUrl: fallbackUpstream.baseUrl
+      });
+      const fallbackRequestCountBefore = fallbackUpstream.requestCount;
+
+      primaryUpstream.setNextResponseOverride({
+        headers: {
+          'content-type': 'text/event-stream'
+        },
+        chunks: [
+          'event: error\ndata: {"type":"error","error":{"message":"primary generic failure","type":"server_error"}}\n\n',
+          'data: [DONE]\n\n'
+        ]
+      });
+      fallbackUpstream.setNextResponseOverride({
+        headers: {
+          'content-type': 'text/event-stream'
+        },
+        chunks: [
+          'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"fallback-after-generic-error"}\n\n',
+          'event: response.completed\ndata: {"type":"response.completed","response":{"id":"resp_fallback_generic_error_prebody_1"}}\n\n',
+          'data: [DONE]\n\n'
+        ]
+      });
+
+      const response = await fetch(new URL('/v1/responses', baseUrl), {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token.rawToken}`,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: token.alias,
+          input: 'generic error before body',
+          stream: true
+        })
+      });
+
+      expect(response.status).toBe(200);
+      const streamText = await readStreamText(response);
+
+      expect(streamText).toContain('"delta":"fallback-after-generic-error"');
+      expect(streamText).not.toContain('primary generic failure');
+      expect(fallbackUpstream.requestCount).toBe(fallbackRequestCountBefore + 1);
+
+      const storedLog = await latestLogForToken(token.tokenId);
+
+      expect(storedLog).toMatchObject({
+        endpointType: 'responses',
+        requestStatus: 'review_required',
+        httpStatusCode: 200,
+        finalUpstreamModelId: token.fallbackUpstreamModelId
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it('marks the request as stream_failed when a malformed SSE frame appears after streaming has started', async () => {
     const { app, baseUrl } = await buildStartedApp();
 
@@ -973,6 +1037,69 @@ describe('gateway responses route', () => {
         endpointType: 'responses',
         requestStatus: 'stream_failed',
         httpStatusCode: 502
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('marks the request as stream_failed when a generic error event arrives after downstream bytes have been sent', async () => {
+    const { app, baseUrl } = await buildStartedApp();
+
+    try {
+      const token = await seedGatewayToken(db.db, primaryUpstream.baseUrl, {
+        alias: 'responses-generic-error-postbyte-alias',
+        channelKeyEncryptionSecret,
+        fallbackBaseUrl: fallbackUpstream.baseUrl
+      });
+      const fallbackRequestCountBefore = fallbackUpstream.requestCount;
+
+      primaryUpstream.setNextResponseOverride({
+        headers: {
+          'content-type': 'text/event-stream'
+        },
+        chunks: [
+          'event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"before-generic-error"}\n\n',
+          'event: error\ndata: {"type":"error","error":{"message":"upstream generic exploded","type":"server_error"}}\n\n',
+          'data: [DONE]\n\n'
+        ],
+        chunkDelayMs: 25
+      });
+
+      const response = await fetch(new URL('/v1/responses', baseUrl), {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token.rawToken}`,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: token.alias,
+          input: 'generic error after body',
+          stream: true
+        })
+      });
+
+      expect(response.status).toBe(200);
+      const streamText = await readStreamText(response);
+
+      expect(streamText).toContain('"delta":"before-generic-error"');
+      expect(streamText).toContain('response.error');
+      expect(streamText).toContain('upstream generic exploded');
+      expect(fallbackUpstream.requestCount).toBe(fallbackRequestCountBefore);
+
+      const storedLog = await latestLogForToken(token.tokenId);
+
+      expect(storedLog).toMatchObject({
+        endpointType: 'responses',
+        requestStatus: 'stream_failed',
+        httpStatusCode: 502
+      });
+      expect(storedLog?.errorSummary).toBe('upstream generic exploded');
+      expect(storedLog?.eventSummaryJson).toMatchObject({
+        sawDone: false,
+        sawCompleted: false,
+        lastEventType: 'error',
+        lastErrorMessage: 'upstream generic exploded'
       });
     } finally {
       await app.close();

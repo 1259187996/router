@@ -11,7 +11,7 @@ services:
       timeout: 5s
       retries: 10
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -28,8 +28,8 @@ services:
       DATABASE_URL: postgres://router:router@postgres:5432/router
       TEST_DATABASE_URL: postgres://router:router@postgres:5432/router_test
       CREATE_DATABASE_BEFORE_MIGRATE: "false"
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
-      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-change-me}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-$$argon2id$$v=19$$m=65536,t=3,p=4$$2ZUI/3GPEaN1FWA8LrybwA$$cJn1yIT9IG/XoG2yjVBcbDMRWUYtT4fO6OfTqstbJOs}
       CHANNEL_KEY_ENCRYPTION_SECRET: ${CHANNEL_KEY_ENCRYPTION_SECRET:-replace-with-at-least-32-characters-secret}
       ALLOW_PRIVATE_UPSTREAM_BASE_URLS: ${ALLOW_PRIVATE_UPSTREAM_BASE_URLS:-true}
       CHANNEL_TEST_TIMEOUT_MS: ${CHANNEL_TEST_TIMEOUT_MS:-5000}

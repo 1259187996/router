@@ -22,6 +22,20 @@
       "when": 1776960874692,
       "tag": "0002_glossy_invisible_woman",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777351200000,
+      "tag": "0003_silver_channel_models",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777354800000,
+      "tag": "0004_steady_token_encrypted",
+      "breakpoints": true
     }
   ]
 }

@@ -5,15 +5,16 @@ test('admin can log in, create a channel, create a token, and inspect request lo
   request,
 }) => {
   await page.goto('/login');
-  await page.getByLabel('邮箱').fill('admin@example.com');
-  await page.getByLabel('密码').fill('Admin123!Admin123!');
+  await page.getByLabel('账号').fill('admin');
+  await page.getByLabel('密码').fill('admin123');
   await page.getByRole('button', { name: '登录' }).click();
 
-  await expect(page.getByText('路由控制台概览')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Token 使用总览' })).toBeVisible();
 
   await page.goto('/channels');
   await expect(page.getByRole('heading', { name: '渠道策略' })).toBeVisible();
   await page.getByRole('button', { name: '新增渠道' }).click();
+  await expect(page.getByRole('dialog', { name: '新增渠道' })).toBeVisible();
   await page.getByLabel('渠道名称').fill('E2E 主渠道');
   await page.getByLabel('Base URL').fill('http://127.0.0.1:4010/v1');
   await page.getByLabel('API Key').fill('sk-test');
@@ -25,6 +26,8 @@ test('admin can log in, create a channel, create a token, and inspect request lo
   await channelRow.getByRole('button', { name: '测试渠道' }).click();
   await expect(channelRow.getByText('最近测试通过')).toBeVisible();
 
+  await page.getByRole('button', { name: '新建逻辑模型' }).first().click();
+  await expect(page.getByRole('dialog', { name: '新建逻辑模型' })).toBeVisible();
   await page.getByLabel('逻辑模型别名').fill('e2e-responses');
   await page.getByLabel('说明').fill('E2E 路由');
   await page.getByLabel('关联渠道').selectOption({ label: 'E2E 主渠道' });
@@ -40,6 +43,7 @@ test('admin can log in, create a channel, create a token, and inspect request lo
   await page.goto('/tokens');
   await expect(page.getByRole('heading', { name: '令牌管理' })).toBeVisible();
   await page.getByRole('button', { name: '新建令牌' }).click();
+  await expect(page.getByRole('dialog', { name: '新建令牌' })).toBeVisible();
   await page.getByLabel('令牌名称').fill('E2E SDK');
   await page.getByLabel('逻辑模型').selectOption({ label: 'e2e-responses' });
   await page.getByLabel('预算上限').fill('50.00');
@@ -67,9 +71,9 @@ test('admin can log in, create a channel, create a token, and inspect request lo
   await expect(page.getByRole('heading', { name: '请求日志' })).toBeVisible();
   const logRow = page.getByRole('row', { name: /responses/i }).first();
   await expect(logRow).toContainText('e2e-responses');
-  await logRow.getByRole('link', { name: '查看详情' }).click();
+  await logRow.getByRole('button', { name: '查看详情' }).click();
 
-  await expect(page.getByRole('heading', { name: '请求详情' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: '请求详情' })).toBeVisible();
   await expect(page.getByText('价格解释')).toBeVisible();
   await expect(page.getByText('E2E 主渠道').first()).toBeVisible();
   await expect(page.getByText('e2e-responses').first()).toBeVisible();

@@ -25,4 +25,18 @@ export const tokenIdSchema = z.object({
   tokenId: z.string().uuid()
 });
 
+export const updateTokenSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  logicalModelId: z.string().uuid().optional(),
+  budgetLimitUsd: usdAmountSchema.optional(),
+  expiresAt: z
+    .string()
+    .datetime({ offset: true })
+    .transform((value) => new Date(value))
+    .nullable()
+    .optional(),
+  status: z.enum(['active', 'expired', 'exhausted']).optional()
+});
+
 export type CreateTokenInput = z.infer<typeof createTokenSchema>;
+export type UpdateTokenInput = z.infer<typeof updateTokenSchema>;

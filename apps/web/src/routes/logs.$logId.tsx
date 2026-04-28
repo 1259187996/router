@@ -1,6 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
-import { StatusBadge } from '../components/status-badge';
-import type { AppApi, LogDetailRouteRecord } from '../lib/api-client';
+import { useQuery } from "@tanstack/react-query";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import type { AppApi, LogDetailRouteRecord } from "../lib/api-client";
 import {
   formatDateTime,
   formatDuration,
@@ -10,77 +18,42 @@ import {
   getAttemptStatusLabel,
   getFailureStageLabel,
   getRequestStatusLabel,
-} from '../lib/log-format';
+} from "../lib/log-format";
 
-const logDetailQueryKey = (logId: string) => ['log-detail', logId] as const;
+const logDetailQueryKey = (logId: string) => ["log-detail", logId] as const;
 
-type LogDetailRouteApi = Pick<AppApi, 'getLogDetail'>;
+type LogDetailRouteApi = Pick<AppApi, "getLogDetail">;
 
 function buildPriceBreakdown(
   inputTokens: number | null,
   outputTokens: number | null,
   finalRoute: LogDetailRouteRecord | null,
 ) {
-  if (!finalRoute || inputTokens == null || outputTokens == null) {
-    return [];
-  }
-
+  if (!finalRoute || inputTokens == null || outputTokens == null) return [];
   const inputPrice = Number.parseFloat(finalRoute.inputPricePer1m);
   const outputPrice = Number.parseFloat(finalRoute.outputPricePer1m);
-
-  if (Number.isNaN(inputPrice) || Number.isNaN(outputPrice)) {
-    return [];
-  }
-
+  if (Number.isNaN(inputPrice) || Number.isNaN(outputPrice)) return [];
   return [
-    {
-      label: '输入费用',
-      expression: `${inputTokens} x ${finalRoute.inputPricePer1m} / 1M`,
-      amount: formatUsd(((inputTokens * inputPrice) / 1_000_000).toFixed(4)),
-    },
-    {
-      label: '输出费用',
-      expression: `${outputTokens} x ${finalRoute.outputPricePer1m} / 1M`,
-      amount: formatUsd(((outputTokens * outputPrice) / 1_000_000).toFixed(4)),
-    },
+    { label: "输入费用", expression: `${inputTokens} x ${finalRoute.inputPricePer1m} / 1M`, amount: formatUsd(((inputTokens * inputPrice) / 1_000_000).toFixed(4)) },
+    { label: "输出费用", expression: `${outputTokens} x ${finalRoute.outputPricePer1m} / 1M`, amount: formatUsd(((outputTokens * outputPrice) / 1_000_000).toFixed(4)) },
   ];
 }
 
-function DetailMetric({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <article className="app-surface rounded-[28px] p-5">
-      <p className="font-mono text-[11px] uppercase tracking-[0.26em] text-accent">{label}</p>
-      <p className="mt-4 text-4xl font-semibold tracking-tight text-brand-strong">{value}</p>
-      <p className="mt-3 text-sm text-ink-soft">{detail}</p>
-    </article>
-  );
-}
-
-function JsonPanel({ title, body }: { title: string; body: string }) {
-  return (
-    <article className="app-muted-surface rounded-[24px] p-5">
-      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent">{title}</p>
-      <pre className="mt-4 overflow-x-auto rounded-[18px] bg-[rgba(18,70,61,0.06)] p-4 font-mono text-xs leading-6 text-ink">
-        {body}
-      </pre>
-    </article>
-  );
+function statusVariant(status: string): "success" | "destructive" | "secondary" | "warning" {
+  if (status === "success" || status === "succeeded") return "success";
+  if (status === "failed" || status === "upstream_error" || status === "stream_failed") return "destructive";
+  if (status === "review_required") return "warning";
+  return "secondary";
 }
 
 export function LogDetailRouteComponent({
   api,
   logId,
+  onClose,
 }: {
   api: LogDetailRouteApi;
   logId: string;
+  onClose: () => void;
 }) {
   const detailQuery = useQuery({
     queryKey: logDetailQueryKey(logId),
@@ -95,184 +68,123 @@ export function LogDetailRouteComponent({
   const priceBreakdown = buildPriceBreakdown(log?.inputTokens ?? null, log?.outputTokens ?? null, finalRoute);
 
   return (
-    <div className="space-y-4">
-      <section className="app-surface rounded-[30px] p-6">
-        <div className="flex flex-col gap-4 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <a href="/logs" className="text-sm font-medium text-accent transition hover:text-brand-strong">
-              返回请求日志
-            </a>
-            <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
-              Request Detail
-            </p>
-            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-brand-strong">
-              请求详情
-            </h3>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-soft">
-              按单次请求拆解最终命中的渠道、价格表、usage 与失败切换过程。
-            </p>
-          </div>
-          <div className="rounded-[22px] border border-line-soft bg-white/72 px-4 py-3 text-right">
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Log ID</p>
-            <p className="mt-2 font-mono text-sm text-brand-strong">{logId}</p>
-          </div>
-        </div>
+    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl lg:max-w-4xl">
+        <SheetHeader>
+          <SheetTitle>请求详情</SheetTitle>
+          <SheetDescription>按单次请求拆解最终命中的渠道、价格表、usage 与失败切换过程。</SheetDescription>
+        </SheetHeader>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <DetailMetric
-            label="请求状态"
-            value={log ? getRequestStatusLabel(log.requestStatus) : '--'}
-            detail={log ? `${log.endpointType} / ${log.logicalModelAlias}` : '等待加载详情'}
-          />
-          <DetailMetric
-            label="本地结算"
-            value={formatUsd(log?.settlementPriceUsd)}
-            detail={finalRoute ? `${finalRoute.currency} / P${finalRoute.priority}` : '未命中最终价格表'}
-          />
-          <DetailMetric
-            label="上游原价"
-            value={formatUsd(log?.rawUpstreamPriceUsd)}
-            detail={log?.finalUpstreamModelId ?? '未记录上游模型'}
-          />
-          <DetailMetric
-            label="Token / 耗时"
-            value={formatDuration(log?.durationMs)}
-            detail={formatTokenSummary(log?.inputTokens, log?.outputTokens)}
-          />
-        </div>
-      </section>
+        <div className="mt-6 space-y-4">
+          {/* Snapshot */}
+          <div className="rounded-lg border bg-muted/30 p-5">
+            <p className="font-mono text-[10px] uppercase text-muted-foreground">Log Snapshot</p>
+            <p className="mt-2 font-mono text-sm">{logId}</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {log ? `${log.endpointType} / ${log.logicalModelAlias}` : "正在载入请求详情..."}
+            </p>
+            <Badge className="mt-3" variant={statusVariant(log?.requestStatus ?? "in_progress")}>
+              {log ? getRequestStatusLabel(log.requestStatus) : "加载中"}
+            </Badge>
+          </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_380px]">
-        <section className="space-y-4">
-          <section className="app-surface rounded-[30px] p-6">
-            <div className="flex flex-col gap-3 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
-                  Pricing Explain
-                </p>
-                <h3 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">
-                  价格解释
-                </h3>
+          {/* Quick metrics */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              { label: "本地结算", value: formatUsd(log?.settlementPriceUsd) },
+              { label: "上游原价", value: formatUsd(log?.rawUpstreamPriceUsd) },
+              { label: "耗时", value: formatDuration(log?.durationMs) },
+              { label: "Token", value: formatTokenSummary(log?.inputTokens, log?.outputTokens) },
+            ].map((m) => (
+              <div key={m.label} className="rounded-lg bg-muted/50 p-4">
+                <p className="font-mono text-[10px] uppercase text-muted-foreground">{m.label}</p>
+                <p className="mt-2 text-lg font-semibold">{m.value}</p>
               </div>
-              <StatusBadge
-                status={log?.requestStatus ?? 'in_progress'}
-                label={log ? getRequestStatusLabel(log.requestStatus) : '加载中'}
-              />
-            </div>
+            ))}
+          </div>
 
-            {priceBreakdown.length > 0 ? (
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
+          {/* Price breakdown */}
+          {priceBreakdown.length > 0 ? (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">价格解释</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
                 {priceBreakdown.map((item) => (
-                  <article key={item.label} className="app-muted-surface rounded-[22px] p-5">
-                    <p className="text-sm font-medium text-ink">{item.label}</p>
-                    <p className="mt-3 font-mono text-sm text-brand-strong">{item.expression}</p>
-                    <p className="mt-3 text-2xl font-semibold tracking-tight text-brand-strong">
-                      {item.amount}
-                    </p>
-                  </article>
+                  <div key={item.label} className="rounded-lg bg-muted/50 p-4">
+                    <p className="text-sm font-medium">{item.label}</p>
+                    <p className="mt-1 font-mono text-xs text-muted-foreground">{item.expression}</p>
+                    <p className="mt-2 text-xl font-semibold">{item.amount}</p>
+                  </div>
                 ))}
               </div>
-            ) : (
-              <div className="mt-6 rounded-[24px] border border-line-soft bg-white/72 p-5 text-sm leading-6 text-ink-soft">
-                当前请求缺少价格表或 usage 明细，无法自动展开费用公式。
-              </div>
-            )}
-
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <article className="app-muted-surface rounded-[22px] p-5">
-                <p className="text-sm font-medium text-ink">结算对照</p>
-                <div className="mt-4 space-y-3 text-sm text-ink-soft">
-                  <div className="flex items-center justify-between gap-3">
-                    <span>本地结算</span>
-                    <span className="font-mono text-brand-strong">{formatUsd(log?.settlementPriceUsd)}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span>上游原价</span>
-                    <span className="font-mono text-brand-strong">{formatUsd(log?.rawUpstreamPriceUsd)}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span>完成时间</span>
-                    <span className="font-mono text-brand-strong">{formatDateTime(log?.finishedAt)}</span>
-                  </div>
-                </div>
-              </article>
-
-              <article className="app-muted-surface rounded-[22px] p-5">
-                <p className="text-sm font-medium text-ink">最终路由</p>
-                <div className="mt-4 space-y-3 text-sm text-ink-soft">
-                  <div className="flex items-center justify-between gap-3">
-                    <span>渠道</span>
-                    <span className="font-medium text-ink">{finalChannel?.name ?? '--'}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span>上游模型</span>
-                    <span className="font-medium text-ink">{finalRoute?.upstreamModelId ?? '--'}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span>价格表</span>
-                    <span className="font-mono text-brand-strong">
-                      {finalRoute ? `${finalRoute.inputPricePer1m} / ${finalRoute.outputPricePer1m}` : '--'}
-                    </span>
-                  </div>
-                </div>
-              </article>
             </div>
-          </section>
+          ) : null}
 
-          <section className="app-surface rounded-[30px] p-6">
-            <div className="flex flex-col gap-3 border-b border-line-soft pb-5 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-accent">
-                  Attempt Timeline
-                </p>
-                <h3 className="mt-2 text-xl font-semibold tracking-tight text-brand-strong">
-                  路由尝试时间线
-                </h3>
+          {/* Settlement comparison */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg bg-muted/50 p-4">
+              <p className="text-sm font-medium">结算对照</p>
+              <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                <div className="flex justify-between"><span>本地结算</span><span className="font-mono font-medium text-foreground">{formatUsd(log?.settlementPriceUsd)}</span></div>
+                <div className="flex justify-between"><span>上游原价</span><span className="font-mono font-medium text-foreground">{formatUsd(log?.rawUpstreamPriceUsd)}</span></div>
+                <div className="flex justify-between"><span>完成时间</span><span className="font-medium text-foreground">{formatDateTime(log?.finishedAt)}</span></div>
               </div>
-              <p className="text-sm text-ink-soft">
-                共 {attempts.length} 次尝试 {attempts.length > 1 ? '/ 发生过切换' : '/ 未发生切换'}
-              </p>
             </div>
 
-            <div className="mt-6 grid gap-4">
+            <div className="rounded-lg bg-muted/50 p-4">
+              <p className="text-sm font-medium">最终路由</p>
+              <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+                <div className="flex justify-between"><span>渠道</span><span className="font-medium text-foreground">{finalChannel?.name ?? "--"}</span></div>
+                <div className="flex justify-between"><span>上游模型</span><span className="font-medium text-foreground">{finalRoute?.upstreamModelId ?? "--"}</span></div>
+                <div className="flex justify-between"><span>价格表</span><span className="font-mono font-medium text-foreground">{finalRoute ? `${finalRoute.inputPricePer1m} / ${finalRoute.outputPricePer1m}` : "--"}</span></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Attempt timeline */}
+          {attempts.length > 0 ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">路由尝试时间线</h3>
+                <p className="text-xs text-muted-foreground">共 {attempts.length} 次</p>
+              </div>
               {attempts.map((attempt) => (
-                <article key={attempt.id} className="app-muted-surface rounded-[24px] p-5">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <p className="text-lg font-semibold text-brand-strong">
-                          Attempt {attempt.attemptIndex}
-                        </p>
-                        <StatusBadge
-                          status={attempt.attemptStatus}
-                          label={getAttemptStatusLabel(attempt.attemptStatus)}
-                        />
-                      </div>
-                      <p className="mt-3 text-sm font-medium text-ink">{attempt.channel.name}</p>
-                      <p className="mt-1 font-mono text-xs uppercase tracking-[0.18em] text-accent">
-                        {attempt.route.upstreamModelId ?? '--'}
-                      </p>
-                    </div>
-
-                    <div className="grid gap-2 text-sm text-ink-soft sm:grid-cols-2 lg:text-right">
-                      <p>开始：{formatDateTime(attempt.startedAt)}</p>
-                      <p>结束：{formatDateTime(attempt.finishedAt)}</p>
-                      <p>失败阶段：{getFailureStageLabel(attempt.failureStage)}</p>
-                      <p>错误摘要：{attempt.errorSummary ?? '--'}</p>
-                    </div>
+                <div key={attempt.id} className="rounded-lg border p-4">
+                  <div className="flex items-center gap-3">
+                    <p className="text-base font-semibold">Attempt {attempt.attemptIndex}</p>
+                    <Badge variant={statusVariant(attempt.attemptStatus)}>
+                      {getAttemptStatusLabel(attempt.attemptStatus)}
+                    </Badge>
                   </div>
-                </article>
+                  <p className="mt-2 text-sm font-medium">{attempt.channel.name}</p>
+                  <p className="font-mono text-xs text-muted-foreground">{attempt.route.upstreamModelId ?? "--"}</p>
+                  <div className="mt-3 grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
+                    <p>开始：{formatDateTime(attempt.startedAt)}</p>
+                    <p>结束：{formatDateTime(attempt.finishedAt)}</p>
+                    <p>失败阶段：{getFailureStageLabel(attempt.failureStage)}</p>
+                    <p>错误：{attempt.errorSummary ?? "--"}</p>
+                  </div>
+                </div>
               ))}
             </div>
-          </section>
-        </section>
+          ) : null}
 
-        <aside className="space-y-4">
-          <JsonPanel title="Event Summary" body={formatJson(log?.eventSummaryJson)} />
-          <JsonPanel title="Raw Usage" body={formatJson(log?.rawUsageJson)} />
-          <JsonPanel title="Request Summary" body={formatJson(log?.rawRequestSummary)} />
-        </aside>
-      </div>
-    </div>
+          {/* JSON panels */}
+          <div className="space-y-3">
+            {[
+              { title: "事件摘要", body: formatJson(log?.eventSummaryJson) },
+              { title: "原始 Usage", body: formatJson(log?.rawUsageJson) },
+              { title: "请求摘要", body: formatJson(log?.rawRequestSummary) },
+            ].map((panel) => (
+              <div key={panel.title} className="rounded-lg bg-muted/50 p-4">
+                <p className="font-mono text-[10px] uppercase text-muted-foreground">{panel.title}</p>
+                <pre className="mt-3 overflow-x-auto rounded-md bg-background p-3 font-mono text-xs leading-6">
+                  {panel.body}
+                </pre>
+              </div>
+            ))}
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

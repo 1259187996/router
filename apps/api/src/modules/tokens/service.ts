@@ -1,11 +1,12 @@
 import { createHash, randomBytes } from 'node:crypto';
-import type { CreateTokenInput } from './schema.js';
+import type { CreateTokenInput, UpdateTokenInput } from './schema.js';
 import type { ApiTokenRecord } from './repository.js';
 import { TokensRepository } from './repository.js';
+import { decryptChannelSecret, encryptChannelSecret } from '../channels/secret.js';
 
 export type BudgetStatus = 'available' | 'exhausted';
 
-export type PublicTokenResponse = Omit<ApiTokenRecord, 'tokenHash'> & {
+export type PublicTokenResponse = Omit<ApiTokenRecord, 'tokenHash' | 'tokenEncrypted'> & {
   budgetStatus: BudgetStatus;
   rawToken?: string;
 };
@@ -37,11 +38,25 @@ function getBudgetStatus(
   return Number(token.budgetUsedUsd) >= Number(token.budgetLimitUsd) ? 'exhausted' : 'available';
 }
 
-function toPublicTokenResponse(token: ApiTokenRecord): PublicTokenResponse {
-  const { tokenHash: _tokenHash, ...publicToken } = token;
+const defaultTokenEncryptionSecret = 'dev-test-token-key-encryption-secret-32';
+
+function decryptStoredToken(token: ApiTokenRecord, tokenEncryptionSecret: string) {
+  return token.tokenEncrypted
+    ? decryptChannelSecret(token.tokenEncrypted, tokenEncryptionSecret)
+    : undefined;
+}
+
+function toPublicTokenResponse(
+  token: ApiTokenRecord,
+  tokenEncryptionSecret: string
+): PublicTokenResponse {
+  const { tokenHash: _tokenHash, tokenEncrypted: _tokenEncrypted, ...publicToken } = token;
   return {
     ...publicToken,
-    budgetStatus: getBudgetStatus(token)
+    budgetStatus: getBudgetStatus(token),
+    ...(token.tokenEncrypted
+      ? { rawToken: decryptStoredToken(token, tokenEncryptionSecret) }
+      : {})
   };
 }
 
@@ -58,7 +73,14 @@ function toGatewayTokenContext(
 }
 
 export class TokenService {
-  constructor(private readonly repository: TokensRepository) {}
+  constructor(
+    private readonly repository: TokensRepository,
+    private readonly options: { tokenEncryptionSecret?: string } = {}
+  ) {}
+
+  private get tokenEncryptionSecret() {
+    return this.options.tokenEncryptionSecret ?? defaultTokenEncryptionSecret;
+  }
 
   async createToken(userId: string, input: CreateTokenInput) {
     const logicalModel = await this.repository.findLogicalModelByIdAndUserId(
@@ -75,24 +97,56 @@ export class TokenService {
       userId,
       name: input.name,
       tokenHash: hashToken(rawToken),
+      tokenEncrypted: encryptChannelSecret(rawToken, this.tokenEncryptionSecret),
       logicalModelId: input.logicalModelId,
       budgetLimitUsd: input.budgetLimitUsd,
       expiresAt: input.expiresAt
     });
 
     return {
-      ...toPublicTokenResponse(token),
+      ...toPublicTokenResponse(token, this.tokenEncryptionSecret),
       rawToken
     };
   }
 
   async listTokens(userId: string) {
     const tokens = await this.repository.listTokensByUserId(userId);
-    return tokens.map((token) => toPublicTokenResponse(token));
+    return tokens.map((token) => toPublicTokenResponse(token, this.tokenEncryptionSecret));
   }
 
-  async revokeToken(userId: string, tokenId: string) {
-    const token = await this.repository.revokeTokenByIdAndUserId(tokenId, userId);
+  async getToken(userId: string, tokenId: string) {
+    const token = await this.repository.findTokenByIdAndUserId(tokenId, userId);
+
+    if (!token) {
+      throw new TokenServiceError('TOKEN_NOT_FOUND');
+    }
+
+    return toPublicTokenResponse(token, this.tokenEncryptionSecret);
+  }
+
+  async updateToken(userId: string, tokenId: string, input: UpdateTokenInput) {
+    if (input.logicalModelId) {
+      const logicalModel = await this.repository.findLogicalModelByIdAndUserId(
+        input.logicalModelId,
+        userId
+      );
+
+      if (!logicalModel) {
+        throw new TokenServiceError('LOGICAL_MODEL_NOT_FOUND');
+      }
+    }
+
+    const token = await this.repository.updateTokenByIdAndUserId(tokenId, userId, input);
+
+    if (!token) {
+      throw new TokenServiceError('TOKEN_NOT_FOUND');
+    }
+
+    return toPublicTokenResponse(token, this.tokenEncryptionSecret);
+  }
+
+  async deleteToken(userId: string, tokenId: string) {
+    const token = await this.repository.deleteTokenByIdAndUserId(tokenId, userId);
 
     if (!token) {
       throw new TokenServiceError('TOKEN_NOT_FOUND');

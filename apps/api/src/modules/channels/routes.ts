@@ -2,8 +2,14 @@ import { ZodError } from 'zod';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import {
   channelIdParamsSchema,
+  channelModelIdParamsSchema,
+  createChannelModelSchema,
   createChannelSchema,
-  createLogicalModelSchema
+  createLogicalModelSchema,
+  logicalModelIdParamsSchema,
+  updateChannelModelSchema,
+  updateChannelSchema,
+  updateLogicalModelSchema
 } from './schema.js';
 import { ChannelsService, ChannelsServiceError } from './service.js';
 
@@ -30,10 +36,11 @@ function toLogicalModelResponse(logicalModel: {
   status: 'active' | 'disabled';
   createdAt: Date;
   updatedAt: Date;
-  routes?: Array<{
-    id: string;
-    channelId: string;
-    upstreamModelId: string | null;
+    routes?: Array<{
+      id: string;
+      channelId: string;
+      channelModelId?: string | null;
+      upstreamModelId: string | null;
     inputPricePer1m: string;
     outputPricePer1m: string;
     currency: string;
@@ -62,6 +69,16 @@ function sendRouteError(error: unknown, reply: FastifyReply) {
 
     if (error.code === 'CHANNEL_NOT_FOUND' || error.code === 'INVALID_ROUTE_CHANNEL') {
       reply.status(404).send({ error: 'Channel not found' });
+      return;
+    }
+
+    if (error.code === 'CHANNEL_MODEL_NOT_FOUND') {
+      reply.status(404).send({ error: 'Channel model not found' });
+      return;
+    }
+
+    if (error.code === 'LOGICAL_MODEL_NOT_FOUND') {
+      reply.status(404).send({ error: 'Logical model not found' });
       return;
     }
 
@@ -117,6 +134,116 @@ export async function registerChannelRoutes(
     }
   });
 
+  fastify.get(
+    '/internal/channels/:channelId',
+    { preHandler: [fastify.requireSession] },
+    async (request, reply) => {
+      try {
+        const params = channelIdParamsSchema.parse(request.params);
+        const detail = await channelsService.getChannelDetail(request.currentUser!.id, params.channelId);
+
+        reply.send(detail);
+      } catch (error) {
+        sendRouteError(error, reply);
+      }
+    }
+  );
+
+  fastify.patch(
+    '/internal/channels/:channelId',
+    { preHandler: [fastify.requireSession] },
+    async (request, reply) => {
+      try {
+        const params = channelIdParamsSchema.parse(request.params);
+        const body = updateChannelSchema.parse(request.body);
+        const channel = await channelsService.updateChannel(
+          request.currentUser!.id,
+          params.channelId,
+          body
+        );
+
+        reply.send({ channel: toChannelResponse(channel) });
+      } catch (error) {
+        sendRouteError(error, reply);
+      }
+    }
+  );
+
+  fastify.delete(
+    '/internal/channels/:channelId',
+    { preHandler: [fastify.requireSession] },
+    async (request, reply) => {
+      try {
+        const params = channelIdParamsSchema.parse(request.params);
+        await channelsService.disableChannel(request.currentUser!.id, params.channelId);
+
+        reply.status(204).send();
+      } catch (error) {
+        sendRouteError(error, reply);
+      }
+    }
+  );
+
+  fastify.post(
+    '/internal/channels/:channelId/models',
+    { preHandler: [fastify.requireSession] },
+    async (request, reply) => {
+      try {
+        const params = channelIdParamsSchema.parse(request.params);
+        const body = createChannelModelSchema.parse(request.body);
+        const model = await channelsService.createChannelModel(
+          request.currentUser!.id,
+          params.channelId,
+          body
+        );
+
+        reply.status(201).send({ model });
+      } catch (error) {
+        sendRouteError(error, reply);
+      }
+    }
+  );
+
+  fastify.patch(
+    '/internal/channels/:channelId/models/:modelId',
+    { preHandler: [fastify.requireSession] },
+    async (request, reply) => {
+      try {
+        const params = channelModelIdParamsSchema.parse(request.params);
+        const body = updateChannelModelSchema.parse(request.body);
+        const model = await channelsService.updateChannelModel(
+          request.currentUser!.id,
+          params.channelId,
+          params.modelId,
+          body
+        );
+
+        reply.send({ model });
+      } catch (error) {
+        sendRouteError(error, reply);
+      }
+    }
+  );
+
+  fastify.delete(
+    '/internal/channels/:channelId/models/:modelId',
+    { preHandler: [fastify.requireSession] },
+    async (request, reply) => {
+      try {
+        const params = channelModelIdParamsSchema.parse(request.params);
+        await channelsService.disableChannelModel(
+          request.currentUser!.id,
+          params.channelId,
+          params.modelId
+        );
+
+        reply.status(204).send();
+      } catch (error) {
+        sendRouteError(error, reply);
+      }
+    }
+  );
+
   fastify.post(
     '/internal/channels/:channelId/test',
     { preHandler: [fastify.requireSession] },
@@ -159,6 +286,44 @@ export async function registerChannelRoutes(
         reply.send({
           logicalModels: logicalModels.map((logicalModel) => toLogicalModelResponse(logicalModel))
         });
+      } catch (error) {
+        sendRouteError(error, reply);
+      }
+    }
+  );
+
+  fastify.patch(
+    '/internal/logical-models/:logicalModelId',
+    { preHandler: [fastify.requireSession] },
+    async (request, reply) => {
+      try {
+        const params = logicalModelIdParamsSchema.parse(request.params);
+        const body = updateLogicalModelSchema.parse(request.body);
+        const result = await channelsService.updateLogicalModel(
+          request.currentUser!.id,
+          params.logicalModelId,
+          body
+        );
+
+        reply.send({
+          logicalModel: toLogicalModelResponse(result.logicalModel),
+          routes: result.routes
+        });
+      } catch (error) {
+        sendRouteError(error, reply);
+      }
+    }
+  );
+
+  fastify.delete(
+    '/internal/logical-models/:logicalModelId',
+    { preHandler: [fastify.requireSession] },
+    async (request, reply) => {
+      try {
+        const params = logicalModelIdParamsSchema.parse(request.params);
+        await channelsService.disableLogicalModel(request.currentUser!.id, params.logicalModelId);
+
+        reply.status(204).send();
       } catch (error) {
         sendRouteError(error, reply);
       }

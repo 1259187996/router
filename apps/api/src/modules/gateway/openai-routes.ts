@@ -315,7 +315,9 @@ function createResponsesStreamEventSummary() {
     responseId: null as string | null,
     sawDone: false,
     sawCompleted: false,
-    usageReported: false
+    usageReported: false,
+    lastEventType: null as string | null,
+    lastErrorMessage: null as string | null
   };
 }
 
@@ -342,6 +344,11 @@ function updateResponsesStreamEventSummary(
   }
 
   addStreamEventType(summary, eventType);
+  summary.lastEventType = eventType;
+
+  if (isResponsesStreamErrorEvent(eventType)) {
+    summary.lastErrorMessage = getResponseErrorMessage(event);
+  }
 
   const responseValue = 'response' in event ? (event as { response?: unknown }).response : undefined;
 
@@ -354,12 +361,25 @@ function updateResponsesStreamEventSummary(
   }
 }
 
+function isResponsesStreamErrorEvent(type: string) {
+  return type === 'response.error' || type === 'error';
+}
+
 function getResponseErrorMessage(event: unknown) {
   if (!event || typeof event !== 'object') {
-    return 'Upstream provider emitted response.error';
+    return 'Upstream provider emitted an error event';
   }
 
+  const eventType =
+    'type' in event && typeof (event as { type?: unknown }).type === 'string'
+      ? (event as { type: string }).type
+      : null;
+
   const errorValue = 'error' in event ? (event as { error?: unknown }).error : undefined;
+
+  if (typeof errorValue === 'string' && errorValue.length > 0) {
+    return errorValue;
+  }
 
   if (errorValue && typeof errorValue === 'object' && 'message' in errorValue) {
     const message = (errorValue as { message?: unknown }).message;
@@ -369,7 +389,19 @@ function getResponseErrorMessage(event: unknown) {
     }
   }
 
-  return 'Upstream provider emitted response.error';
+  if ('message' in event) {
+    const message = (event as { message?: unknown }).message;
+
+    if (typeof message === 'string' && message.length > 0) {
+      return message;
+    }
+  }
+
+  if (eventType) {
+    return `Upstream provider emitted ${eventType}`;
+  }
+
+  return 'Upstream provider emitted an error event';
 }
 
 function summarizeChatRequest(payload: ChatRequest) {
@@ -794,11 +826,11 @@ async function proxyStreamingResponsesRequest(
             throw new Error(MALFORMED_SSE_EVENT_MESSAGE);
           }
 
-          if (parsedEvent.type === 'response.error') {
+          updateResponsesStreamEventSummary(eventSummary, parsedEvent);
+
+          if (isResponsesStreamErrorEvent(parsedEvent.type)) {
             throw new Error(getResponseErrorMessage(parsedEvent));
           }
-
-          updateResponsesStreamEventSummary(eventSummary, parsedEvent);
 
           if (parsedEvent.type === 'response.completed') {
             sawCompleted = true;

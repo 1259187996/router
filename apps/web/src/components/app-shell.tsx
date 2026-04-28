@@ -1,112 +1,166 @@
-import { Link } from '@tanstack/react-router';
-import type { ReactNode } from 'react';
+import { Link } from "@tanstack/react-router";
+import { useState, type ReactNode } from "react";
+import { BarChart3, Key, Layers, LogOut, Menu, ScrollText, UserRound } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const navItems = [
-  { label: '总览', to: '/' as const, activeOnly: true, summary: '用量与异常' },
-  { label: '渠道与路由', to: '/channels' as const, summary: '接入与策略' },
-  { label: 'Key 与权限', to: '/tokens' as const, summary: '发放与预算' },
-  { label: '请求日志', to: '/logs' as const, summary: '账本与排查' },
+  { label: "总览", to: "/" as const, activeOnly: true, summary: "用量与异常", icon: BarChart3 },
+  { label: "渠道与路由", to: "/channels" as const, summary: "接入与策略", icon: Layers },
+  { label: "Key 与权限", to: "/tokens" as const, summary: "发放与预算", icon: Key },
+  { label: "请求日志", to: "/logs" as const, summary: "账本与排查", icon: ScrollText },
 ];
 
-export function AppShell({ children }: { children: ReactNode }) {
+type AppShellUser = {
+  email: string;
+  displayName?: string;
+  role?: "admin" | "user";
+};
+
+export function AppShell({
+  children,
+  user,
+  onLogout,
+}: {
+  children: ReactNode;
+  user: AppShellUser;
+  onLogout: () => Promise<void> | void;
+}) {
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const displayName = user.displayName || user.email;
+  const roleLabel = user.role === "admin" ? "Admin" : "User";
+
+  async function handleLogout() {
+    setIsLoggingOut(true);
+    try {
+      await onLogout();
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-canvas text-ink">
-      <div className="mx-auto flex min-h-screen max-w-[1680px] gap-4 p-4 sm:p-6">
-        <aside className="hidden w-[288px] shrink-0 rounded-[28px] bg-brand px-5 py-5 text-white lg:flex lg:flex-col">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/55">
-              Router Console
-            </p>
-            <p className="mt-3 text-2xl font-semibold tracking-tight text-white">
-              LLM 分发与消耗账本
-            </p>
-            <p className="mt-3 text-sm leading-6 text-white/72">
-              统一接入外部模型渠道，为团队分发 Key，并追踪 token 消耗。
-            </p>
-          </div>
-
-          <nav aria-label="桌面端控制台导航" className="mt-6 space-y-2">
-            {navItems.map((item) => (
-              <Link
-                key={item.label}
-                to={item.to}
-                activeProps={{
-                  className:
-                    'border-white/18 bg-white/14 text-white shadow-[0_18px_40px_-24px_rgba(3,15,14,0.45)]',
-                }}
-                activeOptions={{ exact: item.activeOnly }}
-                className="block rounded-[22px] border border-white/8 px-4 py-4 transition hover:border-white/16 hover:bg-white/8"
-              >
-                <p className="text-sm font-semibold tracking-[0.01em]">{item.label}</p>
-                <p className="mt-2 text-sm text-white/62">{item.summary}</p>
-              </Link>
-            ))}
-          </nav>
-
-          <div className="mt-auto rounded-[24px] border border-white/10 bg-white/8 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/55">
-              Control Plane
-            </p>
-            <p className="mt-3 text-sm leading-6 text-white/72">
-              先看总览，再进入渠道、Key 与日志页，把路由策略与消耗账本放进同一条运营视角。
-            </p>
-          </div>
-        </aside>
-
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <header className="app-surface flex flex-col gap-4 rounded-[28px] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-brand">
-                Router Control Plane
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-brand-strong">
-                企业模型出口控制台
-              </h2>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="rounded-full border border-brand/10 bg-brand px-4 py-2 text-sm font-medium text-white">
-                Session Active
-              </div>
-              <div className="app-muted-surface rounded-full px-4 py-2 font-mono text-xs uppercase tracking-[0.24em] text-ink-soft">
-                Token Ledger
-              </div>
-            </div>
-          </header>
-
-          <nav
-            aria-label="移动端控制台导航"
-            className="app-surface flex flex-col gap-3 rounded-[24px] px-4 py-4 lg:hidden"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-brand">
-                Console Routes
-              </p>
-              <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-ink-soft">
-                4 Entries
-              </p>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {navItems.map((item) => (
-                <Link
-                  key={item.label}
-                  to={item.to}
-                  activeProps={{
-                    className:
-                      'border-brand/12 bg-brand text-white shadow-[0_16px_32px_-24px_rgba(18,70,61,0.82)]',
-                  }}
-                  activeOptions={{ exact: item.activeOnly }}
-                  className="app-muted-surface block rounded-[20px] border border-transparent px-4 py-3 transition hover:border-line-strong hover:bg-white/70"
-                >
-                  <p className="text-sm font-semibold tracking-[0.01em]">{item.label}</p>
-                  <p className="mt-1 text-sm text-current/68">{item.summary}</p>
-                </Link>
-              ))}
-            </div>
-          </nav>
-
-          <main className="min-h-[calc(100vh-8rem)]">{children}</main>
+    <div className="flex min-h-screen bg-background">
+      {/* Desktop Sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border/80 bg-sidebar text-sidebar-foreground lg:flex">
+        <div className="px-6 pt-6">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.32em] text-muted-foreground">
+            Router Console
+          </p>
+          <h1 className="mt-3 text-xl font-semibold tracking-tight text-foreground">LLM 分发与消耗账本</h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            统一接入外部模型渠道，为团队分发 Key，追踪 token 消耗。
+          </p>
         </div>
+
+        <nav className="mt-8 flex-1 space-y-1 px-3">
+          {navItems.map((item) => (
+            <Link
+              key={item.label}
+              to={item.to}
+              activeProps={{ className: "bg-primary/10 text-primary shadow-sm shadow-primary/5" }}
+              activeOptions={{ exact: item.activeOnly }}
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+            >
+              <item.icon className="h-4 w-4" />
+              <div>
+                <span>{item.label}</span>
+                <span className="ml-2 text-xs text-muted-foreground">{item.summary}</span>
+              </div>
+            </Link>
+          ))}
+        </nav>
+
+        <div className="mx-3 mb-6 rounded-lg border border-border/80 bg-background/75 p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <UserRound className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-foreground">控制台会话</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{roleLabel}</p>
+            </div>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            先看总览，再进入渠道、Key 与日志页，把路由策略与消耗账本放进同一条运营视角。
+          </p>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <div className="flex min-h-screen flex-1 flex-col lg:pl-64">
+        {/* Top header */}
+        <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="flex min-h-16 items-center gap-3 px-4 py-3 lg:px-6">
+            {/* Mobile nav trigger */}
+            <MobileNav />
+            <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                  Router Control Plane
+                </p>
+                <h2 className="text-lg font-semibold tracking-tight">企业模型出口控制台</h2>
+              </div>
+              <div className="flex min-w-0 items-center gap-3 self-stretch sm:self-auto">
+                <div className="hidden min-w-0 items-center gap-2 rounded-lg border bg-card px-3 py-2 sm:flex">
+                  <UserRound className="h-4 w-4 shrink-0 text-primary" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium leading-4">{displayName}</p>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{roleLabel}</p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={isLoggingOut}
+                  onClick={() => {
+                    void handleLogout();
+                  }}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  退出登录
+                </Button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 p-4 lg:p-6">{children}</main>
       </div>
+    </div>
+  );
+}
+
+function MobileNav() {
+  return (
+    <div className="lg:hidden">
+      <details className="group relative">
+        <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md p-2 hover:bg-muted">
+          <Menu className="h-5 w-5" />
+          <span className="text-sm font-medium">导航</span>
+        </summary>
+        <nav className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg border bg-background p-1 shadow-lg">
+          {navItems.map((item) => (
+            <Link
+              key={item.label}
+              to={item.to}
+              activeProps={{ className: "bg-muted" }}
+              activeOptions={{ exact: item.activeOnly }}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted",
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              <div>
+                <span className="font-medium">{item.label}</span>
+                <span className="ml-2 text-xs text-muted-foreground">{item.summary}</span>
+              </div>
+            </Link>
+          ))}
+        </nav>
+      </details>
     </div>
   );
 }

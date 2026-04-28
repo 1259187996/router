@@ -71,24 +71,25 @@
 
 ## 6. 部署前必须知道的事情
 
-### 6.1 管理员邮箱有默认值，但密码没有固定默认值
+### 6.1 管理员账号有默认值
 
-默认管理员邮箱来自环境变量：
+默认管理员账号来自环境变量：
 
 ```text
-ADMIN_EMAIL=admin@example.com
+ADMIN_EMAIL=admin
 ```
 
-管理员密码不是写死在代码里的，而是由 `ADMIN_PASSWORD_HASH` 决定。
+默认管理员密码是：
 
-也就是说：
+```text
+admin123
+```
 
-- 默认邮箱通常是 `admin@example.com`
-- 默认密码取决于你拿什么原始密码生成了 Argon2 哈希
+对应的 Argon2 哈希由 `ADMIN_PASSWORD_HASH` 决定；如果不设置环境变量，Compose 和 API 默认会使用 `admin123` 的哈希。
 
-### 6.2 第一次启动前必须设置有效的 `ADMIN_PASSWORD_HASH`
+### 6.2 生产部署建议改掉默认密码
 
-如果你直接用占位值或错误值，管理员账号虽然可能会被种进数据库，但你无法正常登录。
+如果部署到公网或多人可访问环境，建议自己生成新的 `ADMIN_PASSWORD_HASH`，避免继续使用默认密码。
 
 ### 6.3 Token 列表里的 UUID 不是原始令牌
 
@@ -109,7 +110,7 @@ ADMIN_EMAIL=admin@example.com
 cp .env.example .env
 ```
 
-### 7.2 生成管理员密码哈希
+### 7.2 可选：生成管理员密码哈希
 
 先安装依赖：
 
@@ -117,24 +118,24 @@ cp .env.example .env
 pnpm install
 ```
 
-然后用你想作为管理员密码的原始密码生成 Argon2 哈希：
+如果要覆盖默认密码，用你想作为管理员密码的原始密码生成 Argon2 哈希：
 
 ```bash
-pnpm --filter @router/api exec node --input-type=module -e "import argon2 from 'argon2'; console.log(await argon2.hash('Admin123!Admin123!'))"
+pnpm --filter @router/api exec node --input-type=module -e "import argon2 from 'argon2'; console.log(await argon2.hash('your-password'))"
 ```
 
-把输出结果填进 `.env`：
+把输出结果填进 `.env`。如果只是本地或内网测试，可以不设置这两项，直接使用默认 `admin / admin123`：
 
 ```env
-ADMIN_EMAIL=admin@example.com
+ADMIN_EMAIL=admin
 ADMIN_PASSWORD_HASH=$argon2id$...
 CHANNEL_KEY_ENCRYPTION_SECRET=请替换成至少32位的高强度随机字符串
 ```
 
 说明：
 
-- `ADMIN_EMAIL` 不改也可以
-- `ADMIN_PASSWORD_HASH` 必须是真实 Argon2 哈希
+- `ADMIN_EMAIL` 不改就是 `admin`
+- `ADMIN_PASSWORD_HASH` 不改就是 `admin123` 对应的哈希
 - `CHANNEL_KEY_ENCRYPTION_SECRET` 必须至少 32 位，且部署后保持稳定，不能频繁变
 
 ### 7.3 启动服务
@@ -158,8 +159,8 @@ docker compose up --build -d
 
 使用你在上一步设置的管理员信息：
 
-- 邮箱：`ADMIN_EMAIL`
-- 密码：生成 `ADMIN_PASSWORD_HASH` 时使用的原始密码
+- 账号：`ADMIN_EMAIL`，默认 `admin`
+- 密码：生成 `ADMIN_PASSWORD_HASH` 时使用的原始密码，默认 `admin123`
 
 ### 7.5 Compose 模式的实际行为
 
@@ -512,6 +513,7 @@ codex login status
 - `ADMIN_PASSWORD_HASH` 不是有效 Argon2 哈希
 - 你输入的密码和生成哈希时用的原始密码不一致
 - 管理员账号已经存在，但你后来改了 `.env`，seed 不会覆盖旧账号
+- 默认登录信息是 `admin / admin123`
 
 ### 12.2 调用网关返回 `401 Unauthorized`
 
@@ -587,19 +589,5 @@ pnpm exec playwright test apps/web/e2e/router-admin.spec.ts
 - 管理用户能力目前主要在 API 侧，前端控制台还没有完整用户管理页面
 - Compose 更偏内网 MVP / 验收态，不是完全生产化模板
 
-## 15. 首次发布到 GitHub
-
-如果你要把当前项目作为一个全新的 GitHub 仓库发布，推荐流程是：
-
-1. 在 GitHub 上新建一个空仓库
-2. 不要勾选自动生成 `README`、`.gitignore` 或 License
-3. 在本地把当前仓库推上去
-
-示例命令：
-
-```bash
-git remote add origin <你的-github-仓库地址>
-git push -u origin main
-```
 
 如果后续还要补 License、仓库描述、标签或发布页，再直接在 GitHub 上完善即可。

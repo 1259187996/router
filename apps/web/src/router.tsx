@@ -19,7 +19,8 @@ import { LoginRouteComponent } from './routes/login';
 import { TokensRouteComponent } from './routes/tokens';
 import { apiClient, type AppApi } from './lib/api-client';
 
-type RouterApi = Pick<AppApi, 'login' | 'getCurrentUser'> & Partial<Omit<AppApi, 'login' | 'getCurrentUser'>>;
+type RouterApi = Pick<AppApi, 'login' | 'logout' | 'getCurrentUser'> &
+  Partial<Omit<AppApi, 'login' | 'logout' | 'getCurrentUser'>>;
 const sessionQueryKey = ['auth', 'me'] as const;
 
 function createSessionQueryOptions(api: RouterApi) {
@@ -34,9 +35,9 @@ function createSessionQueryOptions(api: RouterApi) {
 function SessionLoading({ label }: { label: string }) {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-[1600px] items-center justify-center px-4 py-6">
-      <div className="app-surface rounded-[30px] px-6 py-5 text-center">
-        <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-accent">Session</p>
-        <p className="mt-3 text-sm text-ink-soft">{label}</p>
+      <div className="rounded-lg border bg-card px-6 py-5 text-center shadow-sm">
+        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">Session</p>
+        <p className="mt-3 text-sm text-muted-foreground">{label}</p>
       </div>
     </div>
   );
@@ -50,6 +51,8 @@ export function createAppRouter(options?: { api?: RouterApi; history?: RouterHis
   const api = options?.api ?? apiClient;
 
   function ShellRouteComponent() {
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const sessionQuery = useQuery(createSessionQueryOptions(api));
 
     if (sessionQuery.isPending) {
@@ -61,7 +64,18 @@ export function createAppRouter(options?: { api?: RouterApi; history?: RouterHis
     }
 
     return (
-      <AppShell>
+      <AppShell
+        user={sessionQuery.data.user}
+        onLogout={async () => {
+          try {
+            await api.logout();
+          } finally {
+            queryClient.setQueryData(sessionQueryKey, { user: null });
+            await queryClient.invalidateQueries({ queryKey: sessionQueryKey });
+            await navigate({ to: '/login', replace: true });
+          }
+        }}
+      >
         <Outlet />
       </AppShell>
     );
@@ -91,10 +105,36 @@ export function createAppRouter(options?: { api?: RouterApi; history?: RouterHis
     );
   }
 
+  function LogsRouteWrapper() {
+    const navigate = useNavigate();
+
+    return (
+      <LogsRouteComponent
+        api={api as AppApi}
+        onInspectLog={(logId) => {
+          void navigate({
+            to: '/logs/$logId',
+            params: { logId },
+          });
+        }}
+        detailPanel={<Outlet />}
+      />
+    );
+  }
+
   function LogDetailRouteWrapper() {
+    const navigate = useNavigate();
     const { logId } = useParams({ strict: false }) as { logId: string };
 
-    return <LogDetailRouteComponent api={api as AppApi} logId={logId} />;
+    return (
+      <LogDetailRouteComponent
+        api={api as AppApi}
+        logId={logId}
+        onClose={() => {
+          void navigate({ to: '/logs' });
+        }}
+      />
+    );
   }
 
   const rootRoute = createRootRoute({
@@ -110,7 +150,7 @@ export function createAppRouter(options?: { api?: RouterApi; history?: RouterHis
   const indexRoute = createRoute({
     getParentRoute: () => shellRoute,
     path: '/',
-    component: IndexRouteComponent,
+    component: () => <IndexRouteComponent api={api as AppApi} />,
   });
 
   const channelsRoute = createRoute({
@@ -128,12 +168,12 @@ export function createAppRouter(options?: { api?: RouterApi; history?: RouterHis
   const logsRoute = createRoute({
     getParentRoute: () => shellRoute,
     path: '/logs',
-    component: () => <LogsRouteComponent api={api as AppApi} />,
+    component: LogsRouteWrapper,
   });
 
   const logDetailRoute = createRoute({
-    getParentRoute: () => shellRoute,
-    path: '/logs/$logId',
+    getParentRoute: () => logsRoute,
+    path: '$logId',
     component: LogDetailRouteWrapper,
   });
 
@@ -144,7 +184,12 @@ export function createAppRouter(options?: { api?: RouterApi; history?: RouterHis
   });
 
   const routeTree = rootRoute.addChildren([
-    shellRoute.addChildren([indexRoute, channelsRoute, tokensRoute, logsRoute, logDetailRoute]),
+    shellRoute.addChildren([
+      indexRoute,
+      channelsRoute,
+      tokensRoute,
+      logsRoute.addChildren([logDetailRoute]),
+    ]),
     loginRoute,
   ]);
 

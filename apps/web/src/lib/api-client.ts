@@ -32,6 +32,18 @@ export interface ChannelRecord {
   updatedAt: string;
 }
 
+export interface ChannelModelRecord {
+  id: string;
+  channelId: string;
+  upstreamModelId: string;
+  inputPricePer1m: string;
+  outputPricePer1m: string;
+  currency: string;
+  status: 'active' | 'disabled';
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ListChannelsResponse {
   channels: ChannelRecord[];
 }
@@ -47,9 +59,33 @@ export interface CreateChannelResponse {
   channel: ChannelRecord;
 }
 
+export interface UpdateChannelInput {
+  name?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  defaultModelId?: string;
+  status?: 'active' | 'disabled';
+}
+
+export interface ChannelModelInput {
+  upstreamModelId: string;
+  inputPricePer1m: string;
+  outputPricePer1m: string;
+  currency: string;
+}
+
+export interface UpdateChannelModelInput extends Partial<ChannelModelInput> {
+  status?: 'active' | 'disabled';
+}
+
+export interface ChannelModelResponse {
+  model: ChannelModelRecord;
+}
+
 export interface LogicalModelRouteRecord {
   id: string;
   channelId: string;
+  channelModelId?: string | null;
   upstreamModelId: string | null;
   inputPricePer1m: string;
   outputPricePer1m: string;
@@ -73,15 +109,22 @@ export interface ListLogicalModelsResponse {
   logicalModels: LogicalModelRecord[];
 }
 
+export interface ChannelDetailResponse {
+  channel: ChannelRecord;
+  models: ChannelModelRecord[];
+  logicalModels: LogicalModelRecord[];
+}
+
 export interface CreateLogicalModelInput {
   alias: string;
   description: string;
   routes: Array<{
     channelId: string;
-    upstreamModelId: string;
-    inputPricePer1m: string;
-    outputPricePer1m: string;
-    currency: string;
+    channelModelId?: string;
+    upstreamModelId?: string;
+    inputPricePer1m?: string;
+    outputPricePer1m?: string;
+    currency?: string;
     priority: number;
   }>;
 }
@@ -89,6 +132,13 @@ export interface CreateLogicalModelInput {
 export interface CreateLogicalModelResponse {
   logicalModel: LogicalModelRecord;
   routes: LogicalModelRouteRecord[];
+}
+
+export interface UpdateLogicalModelInput {
+  alias?: string;
+  description?: string;
+  status?: 'active' | 'disabled';
+  routes?: CreateLogicalModelInput['routes'];
 }
 
 export interface TestChannelResponse {
@@ -125,6 +175,22 @@ export interface CreateTokenResponse {
   token: TokenRecord;
 }
 
+export interface GetTokenResponse {
+  token: TokenRecord;
+}
+
+export interface UpdateTokenInput {
+  name?: string;
+  logicalModelId?: string;
+  budgetLimitUsd?: string;
+  expiresAt?: string | null;
+  status?: 'active' | 'expired' | 'exhausted';
+}
+
+export interface UpdateTokenResponse {
+  token: TokenRecord;
+}
+
 export type JsonValue =
   | string
   | number
@@ -153,6 +219,7 @@ export type FailureStage =
 
 export interface RequestLogRecord {
   id: string;
+  apiTokenId?: string | null;
   endpointType: string;
   logicalModelAlias: string;
   finalUpstreamModelId: string | null;
@@ -170,6 +237,21 @@ export interface RequestLogRecord {
 
 export interface ListLogsResponse {
   logs: RequestLogRecord[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+  summary: {
+    totalRequests: number;
+    successfulRequests: number;
+    attentionRequests: number;
+    totalTokens: number;
+    inputTokens: number;
+    outputTokens: number;
+    settlementPriceUsd: string;
+  };
 }
 
 export interface LogDetailChannelRecord {
@@ -216,6 +298,22 @@ export interface LogDetailResponse {
   attempts: LogAttemptRecord[];
 }
 
+export interface LogsQueryInput {
+  apiTokenId?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface OverviewResponse {
+  totalRequests: number;
+  successfulRequests: number;
+  reviewRequiredRequests: number;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  settlementPriceUsd: string;
+}
+
 async function requestJson<T>(path: string, init: RequestInit) {
   const response = await fetch(path, {
     credentials: 'include',
@@ -255,6 +353,12 @@ export const apiClient = {
     });
   },
 
+  logout() {
+    return requestVoid('/auth/logout', {
+      method: 'POST',
+    });
+  },
+
   async getCurrentUser() {
     const response = await fetch('/auth/me', {
       credentials: 'include',
@@ -282,10 +386,49 @@ export const apiClient = {
     });
   },
 
+  getChannelDetail(channelId: string) {
+    return requestJson<ChannelDetailResponse>(`/internal/channels/${channelId}`, {
+      method: 'GET',
+    });
+  },
+
   createChannel(input: CreateChannelInput) {
     return requestJson<CreateChannelResponse>('/internal/channels', {
       method: 'POST',
       body: JSON.stringify(input),
+    });
+  },
+
+  updateChannel(channelId: string, input: UpdateChannelInput) {
+    return requestJson<CreateChannelResponse>(`/internal/channels/${channelId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+  },
+
+  deleteChannel(channelId: string) {
+    return requestVoid(`/internal/channels/${channelId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  createChannelModel(channelId: string, input: ChannelModelInput) {
+    return requestJson<ChannelModelResponse>(`/internal/channels/${channelId}/models`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
+  updateChannelModel(channelId: string, modelId: string, input: UpdateChannelModelInput) {
+    return requestJson<ChannelModelResponse>(`/internal/channels/${channelId}/models/${modelId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+  },
+
+  deleteChannelModel(channelId: string, modelId: string) {
+    return requestVoid(`/internal/channels/${channelId}/models/${modelId}`, {
+      method: 'DELETE',
     });
   },
 
@@ -309,8 +452,27 @@ export const apiClient = {
     });
   },
 
+  updateLogicalModel(logicalModelId: string, input: UpdateLogicalModelInput) {
+    return requestJson<CreateLogicalModelResponse>(`/internal/logical-models/${logicalModelId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+  },
+
+  deleteLogicalModel(logicalModelId: string) {
+    return requestVoid(`/internal/logical-models/${logicalModelId}`, {
+      method: 'DELETE',
+    });
+  },
+
   listTokens() {
     return requestJson<ListTokensResponse>('/internal/tokens', {
+      method: 'GET',
+    });
+  },
+
+  getToken(tokenId: string) {
+    return requestJson<GetTokenResponse>(`/internal/tokens/${tokenId}`, {
       method: 'GET',
     });
   },
@@ -322,14 +484,35 @@ export const apiClient = {
     });
   },
 
-  revokeToken(tokenId: string) {
+  updateToken(tokenId: string, input: UpdateTokenInput) {
+    return requestJson<UpdateTokenResponse>(`/internal/tokens/${tokenId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+  },
+
+  deleteToken(tokenId: string) {
     return requestVoid(`/internal/tokens/${tokenId}`, {
       method: 'DELETE',
     });
   },
 
-  listLogs() {
-    return requestJson<ListLogsResponse>('/internal/logs', {
+  listLogs(input: LogsQueryInput = {}) {
+    const params = new URLSearchParams();
+
+    if (input.apiTokenId) params.set('apiTokenId', input.apiTokenId);
+    if (input.page) params.set('page', String(input.page));
+    if (input.pageSize) params.set('pageSize', String(input.pageSize));
+
+    const query = params.toString();
+
+    return requestJson<ListLogsResponse>(`/internal/logs${query ? `?${query}` : ''}`, {
+      method: 'GET',
+    });
+  },
+
+  getOverview() {
+    return requestJson<OverviewResponse>('/internal/overview', {
       method: 'GET',
     });
   },

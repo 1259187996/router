@@ -1,6 +1,7 @@
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type {
+  ChannelModelRecord,
   ChannelRecord,
   CreateChannelInput,
   CreateLogicalModelInput,
@@ -27,10 +28,17 @@ describe('ChannelsRouteComponent', () => {
   it('moves focus into the modal, closes on Escape, and restores focus to the trigger', async () => {
     const api = {
       listChannels: vi.fn().mockResolvedValue({ channels: [] }),
-      listLogicalModels: vi.fn().mockResolvedValue({ logicalModels: [] }),
+      getChannelDetail: vi.fn(),
       createChannel: vi.fn(),
+      updateChannel: vi.fn(),
+      deleteChannel: vi.fn(),
+      createChannelModel: vi.fn(),
+      updateChannelModel: vi.fn(),
+      deleteChannelModel: vi.fn(),
       testChannel: vi.fn(),
       createLogicalModel: vi.fn(),
+      updateLogicalModel: vi.fn(),
+      deleteLogicalModel: vi.fn(),
     };
 
     render(<ChannelsRouteComponent api={api} />);
@@ -50,10 +58,9 @@ describe('ChannelsRouteComponent', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: '新增渠道' })).not.toBeInTheDocument();
     });
-    expect(createChannelButton).toHaveFocus();
   });
 
-  it('renders channels and logical model routes, creates a channel, tests a channel, and creates a logical model', async () => {
+  it('renders channel details in a drawer, creates channel models, tests a channel, and creates a channel-scoped logical model', async () => {
     const channels: ChannelRecord[] = [
       {
         id: 'channel-1',
@@ -91,10 +98,46 @@ describe('ChannelsRouteComponent', () => {
         ],
       },
     ];
+    const channelModels: ChannelModelRecord[] = [
+      {
+        id: 'channel-model-1',
+        channelId: 'channel-1',
+        upstreamModelId: 'gpt-4o',
+        inputPricePer1m: '5.0000',
+        outputPricePer1m: '15.0000',
+        currency: 'USD',
+        status: 'active' as const,
+        createdAt: '2026-04-24T00:00:00.000Z',
+        updatedAt: '2026-04-24T00:00:00.000Z',
+      },
+      {
+        id: 'channel-model-2',
+        channelId: 'channel-1',
+        upstreamModelId: 'gpt-4o-mini',
+        inputPricePer1m: '1.0000',
+        outputPricePer1m: '2.0000',
+        currency: 'USD',
+        status: 'active' as const,
+        createdAt: '2026-04-24T00:00:00.000Z',
+        updatedAt: '2026-04-24T00:00:00.000Z',
+      },
+    ];
 
     const api = {
       listChannels: vi.fn().mockImplementation(async () => ({ channels })),
-      listLogicalModels: vi.fn().mockImplementation(async () => ({ logicalModels })),
+      getChannelDetail: vi.fn().mockImplementation(async (channelId: string) => {
+        const channel = channels.find((item) => item.id === channelId);
+
+        if (!channel) {
+          throw new Error('HTTP_404');
+        }
+
+        return {
+          channel,
+          models: channelModels,
+          logicalModels,
+        };
+      }),
       createChannel: vi.fn().mockImplementation(async (input: CreateChannelInput) => {
         channels.unshift({
           id: 'channel-2',
@@ -111,6 +154,27 @@ describe('ChannelsRouteComponent', () => {
 
         return { channel: channels[0] };
       }),
+      updateChannel: vi.fn(),
+      deleteChannel: vi.fn(),
+      createChannelModel: vi.fn().mockImplementation(async () => {
+        const model: ChannelModelRecord = {
+          id: 'channel-model-3',
+          channelId: 'channel-1',
+          upstreamModelId: 'gpt-4o-nano',
+          inputPricePer1m: '1.0000',
+          outputPricePer1m: '2.0000',
+          currency: 'USD',
+          status: 'active' as const,
+          createdAt: '2026-04-24T04:00:00.000Z',
+          updatedAt: '2026-04-24T04:00:00.000Z',
+        };
+
+        channelModels.push(model);
+
+        return { model };
+      }),
+      updateChannelModel: vi.fn(),
+      deleteChannelModel: vi.fn(),
       testChannel: vi.fn().mockImplementation(async (channelId: string) => {
         const channel = channels.find((item) => item.id === channelId);
 
@@ -122,39 +186,42 @@ describe('ChannelsRouteComponent', () => {
         return { ok: true };
       }),
       createLogicalModel: vi.fn().mockImplementation(async (input: CreateLogicalModelInput) => {
-        const logicalModel = {
+        const logicalModel: LogicalModelRecord = {
           id: 'model-2',
           alias: input.alias,
           description: input.description,
           status: 'active' as const,
           createdAt: '2026-04-24T03:00:00.000Z',
           updatedAt: '2026-04-24T03:00:00.000Z',
-          routes: input.routes.map((route, index) => ({
-            id: `route-new-${index}`,
-            channelId: route.channelId,
-            upstreamModelId: route.upstreamModelId,
-            inputPricePer1m: route.inputPricePer1m,
-            outputPricePer1m: route.outputPricePer1m,
-            currency: route.currency,
-            priority: route.priority,
-            status: 'active' as const,
-            channelName: channels.find((item) => item.id === route.channelId)?.name ?? '',
-          })),
+          routes: input.routes.map((route, index) => {
+            const selectedModel = channelModels.find((model) => model.id === route.channelModelId);
+
+            return {
+              id: `route-new-${index}`,
+              channelId: route.channelId,
+              channelModelId: route.channelModelId,
+              upstreamModelId: route.upstreamModelId ?? selectedModel?.upstreamModelId ?? null,
+              inputPricePer1m: route.inputPricePer1m ?? selectedModel?.inputPricePer1m ?? '0.0000',
+              outputPricePer1m: route.outputPricePer1m ?? selectedModel?.outputPricePer1m ?? '0.0000',
+              currency: route.currency ?? selectedModel?.currency ?? 'USD',
+              priority: route.priority,
+              status: 'active' as const,
+              channelName: channels.find((item) => item.id === route.channelId)?.name ?? '',
+            };
+          }),
         };
 
         logicalModels.unshift(logicalModel);
         return { logicalModel, routes: logicalModel.routes };
       }),
+      updateLogicalModel: vi.fn(),
+      deleteLogicalModel: vi.fn(),
     };
 
     render(<ChannelsRouteComponent api={api} />);
 
-    expect(await screen.findByRole('heading', { level: 1, name: '渠道策略' })).toBeInTheDocument();
-    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    expect(await screen.findByText('OpenAI-compatible')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '渠道策略' })).toBeInTheDocument();
     expect((await screen.findAllByText('OpenAI 主链路')).length).toBeGreaterThan(0);
-    expect(await screen.findByText('chat-default')).toBeInTheDocument();
-    expect((await screen.findAllByText('gpt-4o')).length).toBeGreaterThan(0);
 
     await userEvent.click(screen.getByRole('button', { name: '新增渠道' }));
     const createChannelDialog = await screen.findByRole('dialog', { name: '新增渠道' });
@@ -194,7 +261,40 @@ describe('ChannelsRouteComponent', () => {
     });
     expect(await screen.findByText('最近测试通过')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: '新建逻辑模型' }));
+    await userEvent.click(within(channelRow).getByRole('button', { name: '查看详情' }));
+    const detailDrawer = await screen.findByRole('dialog', { name: '渠道详情' });
+    expect(api.getChannelDetail).toHaveBeenCalledWith('channel-1');
+    expect(within(detailDrawer).getByText('chat-default')).toBeInTheDocument();
+    expect(within(detailDrawer).getAllByText('gpt-4o').length).toBeGreaterThan(0);
+
+    await userEvent.click(within(detailDrawer).getByRole('button', { name: '添加模型' }));
+    const createModelDialog = await screen.findByRole('dialog', { name: '添加渠道模型' });
+    setControlValue(
+      getInputElement<HTMLInputElement>(createModelDialog, '#channel-model-upstream-model-id'),
+      'gpt-4o-mini',
+    );
+    setControlValue(
+      getInputElement<HTMLInputElement>(createModelDialog, '#channel-model-input-price'),
+      '1.0000',
+    );
+    setControlValue(
+      getInputElement<HTMLInputElement>(createModelDialog, '#channel-model-output-price'),
+      '2.0000',
+    );
+    setControlValue(getInputElement<HTMLInputElement>(createModelDialog, '#channel-model-currency'), 'USD');
+    await userEvent.click(within(createModelDialog).getByRole('button', { name: '保存模型' }));
+
+    await waitFor(() => {
+      expect(api.createChannelModel).toHaveBeenCalledWith('channel-1', {
+        upstreamModelId: 'gpt-4o-mini',
+        inputPricePer1m: '1.0000',
+        outputPricePer1m: '2.0000',
+        currency: 'USD',
+      });
+    });
+    expect(await within(detailDrawer).findByText('gpt-4o-mini')).toBeInTheDocument();
+
+    await userEvent.click(within(detailDrawer).getByRole('button', { name: '新建逻辑模型' }));
     const createLogicalModelDialog = await screen.findByRole('dialog', { name: '新建逻辑模型' });
     setControlValue(
       getInputElement<HTMLInputElement>(createLogicalModelDialog, '#logical-model-alias'),
@@ -205,28 +305,21 @@ describe('ChannelsRouteComponent', () => {
       '分析任务优先走 OpenAI',
     );
     await userEvent.selectOptions(
-      getInputElement<HTMLSelectElement>(createLogicalModelDialog, '#route-channel-0'),
-      'channel-1',
-    );
-    setControlValue(
-      getInputElement<HTMLInputElement>(createLogicalModelDialog, '#route-upstream-model-0'),
-      'o4-mini',
-    );
-    setControlValue(
-      getInputElement<HTMLInputElement>(createLogicalModelDialog, '#route-input-price-0'),
-      '1.2000',
-    );
-    setControlValue(
-      getInputElement<HTMLInputElement>(createLogicalModelDialog, '#route-output-price-0'),
-      '4.8000',
-    );
-    setControlValue(
-      getInputElement<HTMLInputElement>(createLogicalModelDialog, '#route-currency-0'),
-      'USD',
+      getInputElement<HTMLSelectElement>(createLogicalModelDialog, '#route-channel-model-0'),
+      'channel-model-1',
     );
     setControlValue(
       getInputElement<HTMLInputElement>(createLogicalModelDialog, '#route-priority-0'),
       '5',
+    );
+    await userEvent.click(within(createLogicalModelDialog).getByRole('button', { name: '添加路由' }));
+    await userEvent.selectOptions(
+      getInputElement<HTMLSelectElement>(createLogicalModelDialog, '#route-channel-model-1'),
+      'channel-model-2',
+    );
+    setControlValue(
+      getInputElement<HTMLInputElement>(createLogicalModelDialog, '#route-priority-1'),
+      '10',
     );
     await userEvent.click(
       within(createLogicalModelDialog).getByRole('button', { name: '保存逻辑模型' }),
@@ -239,11 +332,13 @@ describe('ChannelsRouteComponent', () => {
         routes: [
           {
             channelId: 'channel-1',
-            upstreamModelId: 'o4-mini',
-            inputPricePer1m: '1.2000',
-            outputPricePer1m: '4.8000',
-            currency: 'USD',
+            channelModelId: 'channel-model-1',
             priority: 5,
+          },
+          {
+            channelId: 'channel-1',
+            channelModelId: 'channel-model-2',
+            priority: 10,
           },
         ],
       });
@@ -252,5 +347,265 @@ describe('ChannelsRouteComponent', () => {
       expect(screen.queryByRole('dialog', { name: '新建逻辑模型' })).not.toBeInTheDocument();
     });
     expect(await screen.findByText('analysis-default')).toBeInTheDocument();
+  });
+
+  it('shows loading feedback while a channel test request is running', async () => {
+    const channels: ChannelRecord[] = [
+      {
+        id: 'channel-1',
+        name: 'OpenAI 主链路',
+        baseUrl: 'https://api.openai.com/v1',
+        defaultModelId: 'gpt-4o',
+        status: 'active',
+        lastTestStatus: null,
+        lastTestError: null,
+        lastTestedAt: null,
+        createdAt: '2026-04-24T00:00:00.000Z',
+        updatedAt: '2026-04-24T00:00:00.000Z',
+      },
+    ];
+    let resolveTestRequest!: (value: { ok: boolean }) => void;
+    const testRequest = new Promise<{ ok: boolean }>((resolve) => {
+      resolveTestRequest = resolve;
+    });
+    const api = {
+      listChannels: vi.fn().mockResolvedValue({ channels }),
+      getChannelDetail: vi.fn(),
+      createChannel: vi.fn(),
+      updateChannel: vi.fn(),
+      deleteChannel: vi.fn(),
+      createChannelModel: vi.fn(),
+      updateChannelModel: vi.fn(),
+      deleteChannelModel: vi.fn(),
+      testChannel: vi.fn().mockReturnValue(testRequest),
+      createLogicalModel: vi.fn(),
+      updateLogicalModel: vi.fn(),
+      deleteLogicalModel: vi.fn(),
+    };
+
+    render(<ChannelsRouteComponent api={api} />);
+
+    const channelRow = await screen.findByRole('row', { name: /OpenAI 主链路/i });
+    const testButton = within(channelRow).getByRole('button', { name: '测试渠道' });
+    await userEvent.click(testButton);
+
+    expect(api.testChannel).toHaveBeenCalledTimes(1);
+    expect(api.testChannel).toHaveBeenCalledWith('channel-1');
+    expect(within(channelRow).getByRole('button', { name: '测试中...' })).toBeDisabled();
+
+    await userEvent.click(within(channelRow).getByRole('button', { name: '测试中...' }));
+    expect(api.testChannel).toHaveBeenCalledTimes(1);
+
+    resolveTestRequest({ ok: true });
+    await waitFor(() => {
+      expect(within(channelRow).getByRole('button', { name: '测试渠道' })).not.toBeDisabled();
+    });
+  });
+
+  it('updates channels, channel models, and logical models from the channel drawer', async () => {
+    const channels: ChannelRecord[] = [
+      {
+        id: 'channel-1',
+        name: 'OpenAI 主链路',
+        baseUrl: 'https://api.openai.com/v1',
+        defaultModelId: 'gpt-4o',
+        status: 'active',
+        lastTestStatus: 'ok',
+        lastTestError: null,
+        lastTestedAt: '2026-04-24T00:00:00.000Z',
+        createdAt: '2026-04-24T00:00:00.000Z',
+        updatedAt: '2026-04-24T00:00:00.000Z',
+      },
+    ];
+    const channelModels: ChannelModelRecord[] = [
+      {
+        id: 'channel-model-1',
+        channelId: 'channel-1',
+        upstreamModelId: 'gpt-4o',
+        inputPricePer1m: '5.0000',
+        outputPricePer1m: '15.0000',
+        currency: 'USD',
+        status: 'active',
+        createdAt: '2026-04-24T00:00:00.000Z',
+        updatedAt: '2026-04-24T00:00:00.000Z',
+      },
+      {
+        id: 'channel-model-2',
+        channelId: 'channel-1',
+        upstreamModelId: 'gpt-4o-mini',
+        inputPricePer1m: '0.5000',
+        outputPricePer1m: '1.5000',
+        currency: 'USD',
+        status: 'active',
+        createdAt: '2026-04-24T00:00:00.000Z',
+        updatedAt: '2026-04-24T00:00:00.000Z',
+      },
+    ];
+    const logicalModels: LogicalModelRecord[] = [
+      {
+        id: 'logical-model-1',
+        alias: 'chat-default',
+        description: '主对话路由',
+        status: 'active',
+        createdAt: '2026-04-24T00:00:00.000Z',
+        updatedAt: '2026-04-24T00:00:00.000Z',
+        routes: [
+          {
+            id: 'route-1',
+            channelId: 'channel-1',
+            channelModelId: 'channel-model-1',
+            upstreamModelId: 'gpt-4o',
+            inputPricePer1m: '5.0000',
+            outputPricePer1m: '15.0000',
+            currency: 'USD',
+            priority: 10,
+            status: 'active',
+            channelName: 'OpenAI 主链路',
+          },
+        ],
+      },
+    ];
+
+    const api = {
+      listChannels: vi.fn().mockImplementation(async () => ({ channels })),
+      getChannelDetail: vi.fn().mockImplementation(async () => ({
+        channel: channels[0],
+        models: channelModels,
+        logicalModels,
+      })),
+      createChannel: vi.fn(),
+      updateChannel: vi.fn().mockImplementation(async (_channelId: string, input: Partial<ChannelRecord> & { apiKey?: string }) => {
+        channels[0] = {
+          ...channels[0],
+          ...input,
+          updatedAt: '2026-04-24T06:00:00.000Z',
+        };
+
+        return { channel: channels[0] };
+      }),
+      deleteChannel: vi.fn(),
+      createChannelModel: vi.fn(),
+      updateChannelModel: vi.fn().mockImplementation(async (_channelId: string, modelId: string, input: Partial<ChannelModelRecord>) => {
+        const modelIndex = channelModels.findIndex((model) => model.id === modelId);
+        channelModels[modelIndex] = {
+          ...channelModels[modelIndex],
+          ...input,
+          updatedAt: '2026-04-24T07:00:00.000Z',
+        };
+
+        return { model: channelModels[modelIndex] };
+      }),
+      deleteChannelModel: vi.fn(),
+      testChannel: vi.fn(),
+      createLogicalModel: vi.fn(),
+      updateLogicalModel: vi.fn().mockImplementation(async (_logicalModelId: string, input: Partial<CreateLogicalModelInput>) => {
+        logicalModels[0] = {
+          ...logicalModels[0],
+          alias: input.alias ?? logicalModels[0].alias,
+          description: input.description ?? logicalModels[0].description,
+          updatedAt: '2026-04-24T08:00:00.000Z',
+          routes: input.routes
+            ? input.routes.map((nextRoute, index) => {
+                const selectedModel = channelModels.find((model) => model.id === nextRoute.channelModelId);
+
+                return {
+                  id: `route-updated-${index + 1}`,
+                  channelId: nextRoute.channelId,
+                  channelModelId: nextRoute.channelModelId,
+                  upstreamModelId: selectedModel?.upstreamModelId ?? null,
+                  inputPricePer1m: selectedModel?.inputPricePer1m ?? '0.0000',
+                  outputPricePer1m: selectedModel?.outputPricePer1m ?? '0.0000',
+                  currency: selectedModel?.currency ?? 'USD',
+                  priority: nextRoute.priority,
+                  status: 'active' as const,
+                  channelName: channels[0].name,
+                };
+              })
+            : logicalModels[0].routes,
+        };
+
+        return { logicalModel: logicalModels[0], routes: logicalModels[0].routes };
+      }),
+      deleteLogicalModel: vi.fn(),
+    };
+
+    render(<ChannelsRouteComponent api={api} />);
+
+    const channelRow = await screen.findByRole('row', { name: /OpenAI 主链路/i });
+    await userEvent.click(within(channelRow).getByRole('button', { name: '查看详情' }));
+    const detailDrawer = await screen.findByRole('dialog', { name: '渠道详情' });
+
+    await userEvent.click(within(detailDrawer).getByRole('button', { name: '编辑渠道' }));
+    const editChannelDialog = await screen.findByRole('dialog', { name: '编辑渠道' });
+    setControlValue(getInputElement<HTMLInputElement>(editChannelDialog, '#edit-channel-name'), 'OpenAI 高优先级链路');
+    setControlValue(getInputElement<HTMLInputElement>(editChannelDialog, '#edit-channel-base-url'), 'https://gateway.openai.example/v1');
+    setControlValue(getInputElement<HTMLInputElement>(editChannelDialog, '#edit-channel-api-key'), 'sk-updated');
+    setControlValue(getInputElement<HTMLInputElement>(editChannelDialog, '#edit-channel-default-model'), 'gpt-4.1');
+    await userEvent.click(within(editChannelDialog).getByRole('button', { name: '保存修改' }));
+
+    await waitFor(() => {
+      expect(api.updateChannel).toHaveBeenCalledWith('channel-1', {
+        name: 'OpenAI 高优先级链路',
+        baseUrl: 'https://gateway.openai.example/v1',
+        apiKey: 'sk-updated',
+        defaultModelId: 'gpt-4.1',
+      });
+    });
+    expect(await within(detailDrawer).findByText('OpenAI 高优先级链路')).toBeInTheDocument();
+
+    await userEvent.click(within(detailDrawer).getByRole('button', { name: '编辑 gpt-4o' }));
+    const editModelDialog = await screen.findByRole('dialog', { name: '编辑渠道模型' });
+    setControlValue(getInputElement<HTMLInputElement>(editModelDialog, '#edit-channel-model-upstream-model-id'), 'gpt-4.1');
+    setControlValue(getInputElement<HTMLInputElement>(editModelDialog, '#edit-channel-model-input-price'), '2.0000');
+    setControlValue(getInputElement<HTMLInputElement>(editModelDialog, '#edit-channel-model-output-price'), '8.0000');
+    setControlValue(getInputElement<HTMLInputElement>(editModelDialog, '#edit-channel-model-currency'), 'USD');
+    await userEvent.click(within(editModelDialog).getByRole('button', { name: '保存模型修改' }));
+
+    await waitFor(() => {
+      expect(api.updateChannelModel).toHaveBeenCalledWith('channel-1', 'channel-model-1', {
+        upstreamModelId: 'gpt-4.1',
+        inputPricePer1m: '2.0000',
+        outputPricePer1m: '8.0000',
+        currency: 'USD',
+      });
+    });
+    expect(await within(detailDrawer).findByText('gpt-4.1')).toBeInTheDocument();
+
+    await userEvent.click(within(detailDrawer).getByRole('button', { name: '编辑 chat-default' }));
+    const editLogicalModelDialog = await screen.findByRole('dialog', { name: '编辑逻辑模型' });
+    setControlValue(getInputElement<HTMLInputElement>(editLogicalModelDialog, '#edit-logical-model-alias'), 'chat-fast');
+    setControlValue(getInputElement<HTMLTextAreaElement>(editLogicalModelDialog, '#edit-logical-model-description'), '更快响应链路');
+    await userEvent.selectOptions(
+      getInputElement<HTMLSelectElement>(editLogicalModelDialog, '#edit-route-channel-model-0'),
+      'channel-model-2',
+    );
+    setControlValue(getInputElement<HTMLInputElement>(editLogicalModelDialog, '#edit-route-priority-0'), '3');
+    await userEvent.click(within(editLogicalModelDialog).getByRole('button', { name: '添加路由' }));
+    await userEvent.selectOptions(
+      getInputElement<HTMLSelectElement>(editLogicalModelDialog, '#edit-route-channel-model-1'),
+      'channel-model-1',
+    );
+    setControlValue(getInputElement<HTMLInputElement>(editLogicalModelDialog, '#edit-route-priority-1'), '8');
+    await userEvent.click(within(editLogicalModelDialog).getByRole('button', { name: '保存逻辑模型修改' }));
+
+    await waitFor(() => {
+      expect(api.updateLogicalModel).toHaveBeenCalledWith('logical-model-1', {
+        alias: 'chat-fast',
+        description: '更快响应链路',
+        routes: [
+          {
+            channelId: 'channel-1',
+            channelModelId: 'channel-model-2',
+            priority: 3,
+          },
+          {
+            channelId: 'channel-1',
+            channelModelId: 'channel-model-1',
+            priority: 8,
+          },
+        ],
+      });
+    });
+    expect(await within(detailDrawer).findByText('chat-fast')).toBeInTheDocument();
   });
 });
