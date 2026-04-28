@@ -87,6 +87,8 @@ admin123
 
 对应的 Argon2 哈希由 `ADMIN_PASSWORD_HASH` 决定；如果不设置环境变量，Compose 和 API 默认会使用 `admin123` 的哈希。
 
+如果把 Argon2 哈希写进 `.env`，建议用单引号包起来，例如 `ADMIN_PASSWORD_HASH='$argon2id$...'`，避免 Docker Compose 把 `$` 当作环境变量插值。
+
 ### 6.2 生产部署建议改掉默认密码
 
 如果部署到公网或多人可访问环境，建议自己生成新的 `ADMIN_PASSWORD_HASH`，避免继续使用默认密码。
@@ -128,7 +130,7 @@ pnpm --filter @router/api exec node --input-type=module -e "import argon2 from '
 
 ```env
 ADMIN_EMAIL=admin
-ADMIN_PASSWORD_HASH=$argon2id$...
+ADMIN_PASSWORD_HASH='$argon2id$...'
 CHANNEL_KEY_ENCRYPTION_SECRET=请替换成至少32位的高强度随机字符串
 ```
 
