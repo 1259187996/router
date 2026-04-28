@@ -577,6 +577,7 @@ async function proxyJsonRequest(
           baseUrl: route.baseUrl,
           path: input.endpoint.path,
           apiKey: decryptChannelSecret(route.apiKeyEncrypted, input.channelKeyEncryptionSecret),
+          provider: route.provider,
           payload,
           timeoutMs: input.upstreamTimeoutMs
         });
@@ -741,6 +742,7 @@ async function proxyStreamingResponsesRequest(
           baseUrl: route.baseUrl,
           path: '/responses',
           apiKey: decryptChannelSecret(route.apiKeyEncrypted, input.channelKeyEncryptionSecret),
+          provider: route.provider,
           payload,
           timeoutMs: input.upstreamTimeoutMs
         });

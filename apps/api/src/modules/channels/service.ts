@@ -1,5 +1,6 @@
 import type {
   ChannelModelInput,
+  CreateChannelPreparedInput,
   CreateChannelInput,
   CreateLogicalModelInput,
   LogicalModelRouteInput,
@@ -8,7 +9,13 @@ import type {
   UpdateChannelModelInput,
   UpdateLogicalModelInput
 } from './schema.js';
-import { testOpenAiCompatibleChannel } from './provider-test.js';
+import {
+  channelProviderIds,
+  getChannelProviderConfig,
+  type ChannelProvider,
+  type ChannelProviderConfig
+} from '@router/shared';
+import { testAnthropicMessagesChannel, testOpenAiCompatibleChannel } from './provider-test.js';
 import { ChannelsRepository } from './repository.js';
 import { decryptChannelSecret, encryptChannelSecret } from './secret.js';
 import {
@@ -49,8 +56,10 @@ export class ChannelsService {
   ) {}
 
   async createChannel(userId: string, input: CreateChannelInput) {
+    const normalizedInput = this.normalizeCreateChannelInput(input);
+
     try {
-      parseSupportedUpstreamBaseUrl(input.baseUrl);
+      parseSupportedUpstreamBaseUrl(normalizedInput.baseUrl);
     } catch (error) {
       if (error instanceof ChannelBaseUrlValidationError) {
         throw new ChannelsServiceError(error.code);
@@ -60,15 +69,36 @@ export class ChannelsService {
     }
 
     return this.repository.createChannel(userId, {
-      ...input,
-      apiKey: encryptChannelSecret(input.apiKey, this.options.channelKeyEncryptionSecret)
+      ...normalizedInput,
+      apiKey: encryptChannelSecret(
+        normalizedInput.apiKey,
+        this.options.channelKeyEncryptionSecret
+      )
     });
   }
 
   async updateChannel(userId: string, channelId: string, input: UpdateChannelInput) {
-    if (input.baseUrl !== undefined) {
+    let normalizedInput = input;
+
+    if (input.provider !== undefined) {
+      const existingChannel = await this.repository.findChannelByIdAndUserId(channelId, userId);
+
+      if (!existingChannel) {
+        throw new ChannelsServiceError('CHANNEL_NOT_FOUND');
+      }
+
+      normalizedInput = {
+        ...input,
+        ...this.getPresetChannelDefaults(input.provider, {
+          baseUrl: input.baseUrl,
+          defaultModelId: input.defaultModelId
+        })
+      };
+    }
+
+    if (normalizedInput.baseUrl !== undefined) {
       try {
-        parseSupportedUpstreamBaseUrl(input.baseUrl);
+        parseSupportedUpstreamBaseUrl(normalizedInput.baseUrl);
       } catch (error) {
         if (error instanceof ChannelBaseUrlValidationError) {
           throw new ChannelsServiceError(error.code);
@@ -79,11 +109,11 @@ export class ChannelsService {
     }
 
     const channel = await this.repository.updateChannelByIdAndUserId(channelId, userId, {
-      ...input,
-      ...(input.apiKey
+      ...normalizedInput,
+      ...(normalizedInput.apiKey
         ? {
             apiKeyEncrypted: encryptChannelSecret(
-              input.apiKey,
+              normalizedInput.apiKey,
               this.options.channelKeyEncryptionSecret
             )
           }
@@ -183,7 +213,7 @@ export class ChannelsService {
       }
     };
 
-    let providerResult: Awaited<ReturnType<typeof testOpenAiCompatibleChannel>>;
+    let providerResult: { ok: boolean };
 
     try {
       const target = await assertSafeUpstreamBaseUrl(channel.baseUrl, {
@@ -196,12 +226,18 @@ export class ChannelsService {
         this.options.channelKeyEncryptionSecret
       );
 
-      providerResult = await testOpenAiCompatibleChannel({
+      const testInput = {
         apiKey,
         model: channel.defaultModelId,
         target,
         timeoutMs: remainingTimeoutMs()
-      });
+      };
+      const providerConfig = getChannelProviderConfig(this.normalizeProvider(channel.provider));
+
+      providerResult =
+        providerConfig.protocol === 'anthropic-messages'
+          ? await testAnthropicMessagesChannel(testInput)
+          : await testOpenAiCompatibleChannel(testInput);
     } catch (error) {
       if (error instanceof ChannelBaseUrlValidationError) {
         if (error.code === 'UNSAFE_CHANNEL_BASE_URL') {
@@ -424,5 +460,74 @@ export class ChannelsService {
     }
 
     return preparedRoutes;
+  }
+
+  private normalizeCreateChannelInput(input: CreateChannelInput): CreateChannelPreparedInput {
+    const provider = input.provider;
+    const presetDefaults = this.getPresetChannelDefaults(provider, {
+      baseUrl: input.baseUrl,
+      defaultModelId: input.defaultModelId
+    });
+    const baseUrl = presetDefaults.baseUrl ?? input.baseUrl;
+    const defaultModelId = presetDefaults.defaultModelId ?? input.defaultModelId;
+
+    if (!baseUrl || !defaultModelId) {
+      throw new ChannelsServiceError('INVALID_CHANNEL_BASE_URL');
+    }
+
+    return {
+      ...input,
+      provider,
+      baseUrl,
+      defaultModelId,
+      models:
+        input.models && input.models.length > 0
+          ? input.models
+          : this.getDefaultChannelModels(provider)
+    };
+  }
+
+  private getPresetChannelDefaults(
+    provider: ChannelProvider,
+    input: { baseUrl?: string; defaultModelId?: string }
+  ) {
+    const providerConfig = getChannelProviderConfig(provider);
+
+    if (providerConfig.requiresBaseUrl) {
+      return input;
+    }
+
+    return {
+      baseUrl: input.baseUrl ?? this.requirePresetValue(providerConfig, 'baseUrl'),
+      defaultModelId:
+        input.defaultModelId ?? this.requirePresetValue(providerConfig, 'defaultModelId')
+    };
+  }
+
+  private getDefaultChannelModels(provider: ChannelProvider) {
+    const providerConfig = getChannelProviderConfig(provider);
+
+    return providerConfig.defaultChannelModels.map((model) => ({ ...model }));
+  }
+
+  private requirePresetValue(
+    providerConfig: ChannelProviderConfig,
+    key: 'baseUrl' | 'defaultModelId'
+  ) {
+    const value = providerConfig[key];
+
+    if (!value) {
+      throw new ChannelsServiceError('INVALID_CHANNEL_BASE_URL');
+    }
+
+    return value;
+  }
+
+  private normalizeProvider(provider: string): ChannelProvider {
+    if ((channelProviderIds as readonly string[]).includes(provider)) {
+      return provider as ChannelProvider;
+    }
+
+    return 'openai-compatible';
   }
 }

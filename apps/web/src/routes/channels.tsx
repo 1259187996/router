@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { channelProviderConfigs, channelProviderIds, type ChannelProvider } from "@router/shared";
 import { useMemo, useState } from "react";
 import { toast } from "@/components/ui/sonner";
 import { Badge } from "@/components/ui/badge";
@@ -78,6 +79,62 @@ type ChannelsRouteApi = Pick<
   | "deleteLogicalModel"
 >;
 
+type ChannelFormState = {
+  name: string;
+  provider: ChannelProvider;
+  baseUrl: string;
+  apiKey: string;
+  defaultModelId: string;
+};
+
+function createEmptyChannelForm(provider: ChannelProvider = "openai"): ChannelFormState {
+  return {
+    name: "",
+    provider,
+    baseUrl: "",
+    apiKey: "",
+    defaultModelId: "",
+  };
+}
+
+function requiresManualProviderFields(provider: ChannelProvider) {
+  return channelProviderConfigs[normalizeProvider(provider)].requiresBaseUrl;
+}
+
+function providerLabel(provider: ChannelProvider | string) {
+  return channelProviderConfigs[normalizeProvider(provider)].label;
+}
+
+function normalizeProvider(provider: ChannelProvider | string | undefined): ChannelProvider {
+  return provider && (channelProviderIds as readonly string[]).includes(provider)
+    ? (provider as ChannelProvider)
+    : "openai-compatible";
+}
+
+function buildChannelInput(form: ChannelFormState) {
+  const input: {
+    name: string;
+    provider: ChannelProvider;
+    apiKey: string;
+    baseUrl?: string;
+    defaultModelId?: string;
+  } = {
+    name: form.name,
+    provider: form.provider,
+    apiKey: form.apiKey,
+  };
+
+  if (requiresManualProviderFields(form.provider) || form.baseUrl.trim()) {
+    input.baseUrl = form.baseUrl;
+  }
+
+  if (requiresManualProviderFields(form.provider) || form.defaultModelId.trim()) {
+    input.defaultModelId = form.defaultModelId;
+  }
+
+  return input;
+}
+
 function formatDateTime(value: string | null) {
   if (!value) return "未记录";
   return new Intl.DateTimeFormat("zh-CN", {
@@ -104,8 +161,8 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
   const [isCreateLogicalModelOpen, setIsCreateLogicalModelOpen] = useState(false);
   const [editingLogicalModelId, setEditingLogicalModelId] = useState<string | null>(null);
-  const [channelForm, setChannelForm] = useState({ name: "", baseUrl: "", apiKey: "", defaultModelId: "" });
-  const [editChannelForm, setEditChannelForm] = useState({ name: "", baseUrl: "", apiKey: "", defaultModelId: "" });
+  const [channelForm, setChannelForm] = useState<ChannelFormState>(() => createEmptyChannelForm());
+  const [editChannelForm, setEditChannelForm] = useState<ChannelFormState>(() => createEmptyChannelForm());
   const [modelForm, setModelForm] = useState({
     upstreamModelId: "",
     inputPricePer1m: "0.0000",
@@ -148,9 +205,9 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
   };
 
   const createChannelMutation = useMutation({
-    mutationFn: () => api.createChannel(channelForm),
+    mutationFn: () => api.createChannel(buildChannelInput(channelForm)),
     onSuccess: async () => {
-      setChannelForm({ name: "", baseUrl: "", apiKey: "", defaultModelId: "" });
+      setChannelForm(createEmptyChannelForm());
       setIsCreateChannelOpen(false);
       await invalidateChannels();
       toast.success("渠道已创建");
@@ -161,9 +218,19 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
     mutationFn: () => {
       const input: UpdateChannelInput = {
         name: editChannelForm.name,
-        baseUrl: editChannelForm.baseUrl,
-        defaultModelId: editChannelForm.defaultModelId,
+        provider: editChannelForm.provider,
       };
+
+      if (requiresManualProviderFields(editChannelForm.provider) || editChannelForm.baseUrl.trim()) {
+        input.baseUrl = editChannelForm.baseUrl;
+      }
+
+      if (
+        requiresManualProviderFields(editChannelForm.provider) ||
+        editChannelForm.defaultModelId.trim()
+      ) {
+        input.defaultModelId = editChannelForm.defaultModelId;
+      }
 
       if (editChannelForm.apiKey.trim()) {
         input.apiKey = editChannelForm.apiKey;
@@ -173,7 +240,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
     },
     onSuccess: async () => {
       setIsEditChannelOpen(false);
-      setEditChannelForm({ name: "", baseUrl: "", apiKey: "", defaultModelId: "" });
+      setEditChannelForm(createEmptyChannelForm());
       await invalidateChannels();
       toast.success("渠道已更新");
     },
@@ -295,6 +362,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
 
     setEditChannelForm({
       name: selectedChannel.name,
+      provider: normalizeProvider(selectedChannel.provider),
       baseUrl: selectedChannel.baseUrl,
       apiKey: "",
       defaultModelId: selectedChannel.defaultModelId,
@@ -427,6 +495,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
             <TableHeader>
               <TableRow>
                 <TableHead>渠道</TableHead>
+                <TableHead>供应商</TableHead>
                 <TableHead>Base URL</TableHead>
                 <TableHead>默认模型</TableHead>
                 <TableHead>状态</TableHead>
@@ -444,6 +513,9 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                     <TableCell>
                       <p className="font-medium">{channel.name}</p>
                       <p className="font-mono text-xs text-muted-foreground">{channel.id}</p>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{providerLabel(channel.provider)}</Badge>
                     </TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">{channel.baseUrl}</TableCell>
                     <TableCell className="font-medium">{channel.defaultModelId}</TableCell>
@@ -502,6 +574,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                     <p className="font-mono text-[10px] uppercase text-muted-foreground">Channel</p>
                     <h3 className="mt-2 text-2xl font-semibold">{selectedChannel.name}</h3>
                     <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{selectedChannel.baseUrl}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">供应商：{providerLabel(selectedChannel.provider)}</p>
                   </div>
                   <div className="flex flex-wrap justify-end gap-2">
                     <Button variant="outline" onClick={openEditChannelDialog}>
@@ -631,17 +704,41 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>新增渠道</DialogTitle>
-            <DialogDescription>接入一个 OpenAI-compatible 上游。</DialogDescription>
+            <DialogDescription>常见供应商只需要填写 API Key，自定义兼容渠道可继续填写地址和模型。</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
             <Label htmlFor="channel-name">渠道名称</Label>
             <Input id="channel-name" value={channelForm.name} onChange={(event) => setChannelForm((c) => ({ ...c, name: event.target.value }))} />
-            <Label htmlFor="channel-base-url">Base URL</Label>
-            <Input id="channel-base-url" value={channelForm.baseUrl} onChange={(event) => setChannelForm((c) => ({ ...c, baseUrl: event.target.value }))} />
+            <Label htmlFor="channel-provider">供应商</Label>
+            <select
+              id="channel-provider"
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+              value={channelForm.provider}
+              onChange={(event) =>
+                setChannelForm((current) => ({
+                  ...current,
+                  provider: event.target.value as ChannelProvider,
+                  baseUrl: "",
+                  defaultModelId: "",
+                }))
+              }
+            >
+              {channelProviderIds.map((provider) => (
+                <option key={provider} value={provider}>
+                  {providerLabel(provider)}
+                </option>
+              ))}
+            </select>
+            {requiresManualProviderFields(channelForm.provider) ? (
+              <>
+                <Label htmlFor="channel-base-url">Base URL</Label>
+                <Input id="channel-base-url" value={channelForm.baseUrl} onChange={(event) => setChannelForm((c) => ({ ...c, baseUrl: event.target.value }))} />
+                <Label htmlFor="channel-default-model">默认测试模型</Label>
+                <Input id="channel-default-model" value={channelForm.defaultModelId} onChange={(event) => setChannelForm((c) => ({ ...c, defaultModelId: event.target.value }))} />
+              </>
+            ) : null}
             <Label htmlFor="channel-api-key">API Key</Label>
             <Input id="channel-api-key" value={channelForm.apiKey} onChange={(event) => setChannelForm((c) => ({ ...c, apiKey: event.target.value }))} />
-            <Label htmlFor="channel-default-model">默认测试模型</Label>
-            <Input id="channel-default-model" value={channelForm.defaultModelId} onChange={(event) => setChannelForm((c) => ({ ...c, defaultModelId: event.target.value }))} />
           </div>
           <DialogFooter>
             <Button onClick={() => createChannelMutation.mutate()}>保存渠道</Button>
@@ -658,12 +755,36 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
           <div className="grid gap-4">
             <Label htmlFor="edit-channel-name">渠道名称</Label>
             <Input id="edit-channel-name" value={editChannelForm.name} onChange={(event) => setEditChannelForm((c) => ({ ...c, name: event.target.value }))} />
-            <Label htmlFor="edit-channel-base-url">Base URL</Label>
-            <Input id="edit-channel-base-url" value={editChannelForm.baseUrl} onChange={(event) => setEditChannelForm((c) => ({ ...c, baseUrl: event.target.value }))} />
+            <Label htmlFor="edit-channel-provider">供应商</Label>
+            <select
+              id="edit-channel-provider"
+              className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+              value={editChannelForm.provider}
+              onChange={(event) =>
+                setEditChannelForm((current) => ({
+                  ...current,
+                  provider: event.target.value as ChannelProvider,
+                  baseUrl: "",
+                  defaultModelId: "",
+                }))
+              }
+            >
+              {channelProviderIds.map((provider) => (
+                <option key={provider} value={provider}>
+                  {providerLabel(provider)}
+                </option>
+              ))}
+            </select>
+            {requiresManualProviderFields(editChannelForm.provider) ? (
+              <>
+                <Label htmlFor="edit-channel-base-url">Base URL</Label>
+                <Input id="edit-channel-base-url" value={editChannelForm.baseUrl} onChange={(event) => setEditChannelForm((c) => ({ ...c, baseUrl: event.target.value }))} />
+                <Label htmlFor="edit-channel-default-model">默认测试模型</Label>
+                <Input id="edit-channel-default-model" value={editChannelForm.defaultModelId} onChange={(event) => setEditChannelForm((c) => ({ ...c, defaultModelId: event.target.value }))} />
+              </>
+            ) : null}
             <Label htmlFor="edit-channel-api-key">API Key</Label>
             <Input id="edit-channel-api-key" value={editChannelForm.apiKey} onChange={(event) => setEditChannelForm((c) => ({ ...c, apiKey: event.target.value }))} />
-            <Label htmlFor="edit-channel-default-model">默认测试模型</Label>
-            <Input id="edit-channel-default-model" value={editChannelForm.defaultModelId} onChange={(event) => setEditChannelForm((c) => ({ ...c, defaultModelId: event.target.value }))} />
           </div>
           <DialogFooter>
             <Button onClick={() => updateChannelMutation.mutate()}>保存修改</Button>

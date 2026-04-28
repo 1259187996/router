@@ -15,7 +15,7 @@ export class RequestLogService {
   async createStartedLog(input: {
     userId: string;
     apiTokenId: string;
-    endpointType: 'chat_completions' | 'embeddings' | 'responses';
+    endpointType: 'chat_completions' | 'embeddings' | 'responses' | 'anthropic_messages';
     logicalModelAlias: string;
     rawRequestSummary: unknown;
   }) {

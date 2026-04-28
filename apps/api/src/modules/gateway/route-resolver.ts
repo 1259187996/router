@@ -10,6 +10,7 @@ export async function resolveRoutesForAlias(
     .select({
       routeId: channelRoutes.id,
       channelId: channels.id,
+      provider: channels.provider,
       baseUrl: channels.baseUrl,
       apiKeyEncrypted: channels.apiKeyEncrypted,
       upstreamModelId: channelRoutes.upstreamModelId,

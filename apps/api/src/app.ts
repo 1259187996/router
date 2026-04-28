@@ -18,6 +18,7 @@ import { createSessionCookieOptions, registerSessionPlugin } from './plugins/ses
 import { registerErrorHandler } from './plugins/errors.js';
 import { registerGatewayAuthPlugin } from './plugins/gateway-auth.js';
 import { registerOpenAiRoutes } from './modules/gateway/openai-routes.js';
+import { registerAnthropicRoutes } from './modules/gateway/anthropic-routes.js';
 
 type BuildAppOptions = Pick<FastifyServerOptions, 'logger'> & {
   bodyLimit?: number;
@@ -60,6 +61,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await registerTokenRoutes(app, tokenService);
   await registerLogRoutes(app, logsService);
   await registerOpenAiRoutes(app, {
+    channelKeyEncryptionSecret: channelRuntimeOptions.channelKeyEncryptionSecret,
+    upstreamTimeoutMs: options.gatewayUpstreamTimeoutMs ?? 30_000
+  });
+  await registerAnthropicRoutes(app, {
     channelKeyEncryptionSecret: channelRuntimeOptions.channelKeyEncryptionSecret,
     upstreamTimeoutMs: options.gatewayUpstreamTimeoutMs ?? 30_000
   });

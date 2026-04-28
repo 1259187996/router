@@ -1,3 +1,5 @@
+import type { ChannelProvider } from '@router/shared';
+
 export interface LoginInput {
   email: string;
   password: string;
@@ -22,6 +24,7 @@ export interface CurrentUserResponse {
 export interface ChannelRecord {
   id: string;
   name: string;
+  provider: ChannelProvider;
   baseUrl: string;
   defaultModelId: string;
   status: 'active' | 'disabled';
@@ -50,9 +53,10 @@ export interface ListChannelsResponse {
 
 export interface CreateChannelInput {
   name: string;
-  baseUrl: string;
+  provider?: ChannelProvider;
+  baseUrl?: string;
   apiKey: string;
-  defaultModelId: string;
+  defaultModelId?: string;
 }
 
 export interface CreateChannelResponse {
@@ -61,6 +65,7 @@ export interface CreateChannelResponse {
 
 export interface UpdateChannelInput {
   name?: string;
+  provider?: ChannelProvider;
   baseUrl?: string;
   apiKey?: string;
   defaultModelId?: string;

@@ -1,6 +1,7 @@
 export const sharedPackageName = '@router/shared';
 
 export * from './contracts/gateway.js';
+export * from './providers.js';
 export * from './openai/chat.js';
 export * from './openai/embeddings.js';
 export * from './openai/events.js';

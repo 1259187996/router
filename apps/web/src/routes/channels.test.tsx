@@ -60,11 +60,67 @@ describe('ChannelsRouteComponent', () => {
     });
   });
 
+  it('creates a preset provider channel with only name and api key', async () => {
+    const api = {
+      listChannels: vi.fn().mockResolvedValue({ channels: [] }),
+      getChannelDetail: vi.fn(),
+      createChannel: vi.fn().mockResolvedValue({
+        channel: {
+          id: 'channel-anthropic',
+          name: 'Anthropic 备链',
+          provider: 'anthropic',
+          baseUrl: 'https://api.anthropic.com/v1',
+          defaultModelId: 'claude-sonnet-4-5-20250929',
+          status: 'active',
+          lastTestStatus: null,
+          lastTestError: null,
+          lastTestedAt: null,
+          createdAt: '2026-04-24T01:00:00.000Z',
+          updatedAt: '2026-04-24T01:00:00.000Z',
+        },
+      }),
+      updateChannel: vi.fn(),
+      deleteChannel: vi.fn(),
+      createChannelModel: vi.fn(),
+      updateChannelModel: vi.fn(),
+      deleteChannelModel: vi.fn(),
+      testChannel: vi.fn(),
+      createLogicalModel: vi.fn(),
+      updateLogicalModel: vi.fn(),
+      deleteLogicalModel: vi.fn(),
+    };
+
+    render(<ChannelsRouteComponent api={api} />);
+
+    await userEvent.click(await screen.findByRole('button', { name: '新增渠道' }));
+    const createChannelDialog = await screen.findByRole('dialog', { name: '新增渠道' });
+    setControlValue(getInputElement<HTMLInputElement>(createChannelDialog, '#channel-name'), 'Anthropic 备链');
+    await userEvent.selectOptions(
+      getInputElement<HTMLSelectElement>(createChannelDialog, '#channel-provider'),
+      'anthropic',
+    );
+    setControlValue(getInputElement<HTMLInputElement>(createChannelDialog, '#channel-api-key'), 'sk-ant');
+
+    expect(createChannelDialog.querySelector('#channel-base-url')).not.toBeInTheDocument();
+    expect(createChannelDialog.querySelector('#channel-default-model')).not.toBeInTheDocument();
+
+    await userEvent.click(within(createChannelDialog).getByRole('button', { name: '保存渠道' }));
+
+    await waitFor(() => {
+      expect(api.createChannel).toHaveBeenCalledWith({
+        name: 'Anthropic 备链',
+        provider: 'anthropic',
+        apiKey: 'sk-ant',
+      });
+    });
+  });
+
   it('renders channel details in a drawer, creates channel models, tests a channel, and creates a channel-scoped logical model', async () => {
     const channels: ChannelRecord[] = [
       {
         id: 'channel-1',
         name: 'OpenAI 主链路',
+        provider: 'openai-compatible',
         baseUrl: 'https://api.openai.com/v1',
         defaultModelId: 'gpt-4o',
         status: 'active' as const,
@@ -142,8 +198,9 @@ describe('ChannelsRouteComponent', () => {
         channels.unshift({
           id: 'channel-2',
           name: input.name,
-          baseUrl: input.baseUrl,
-          defaultModelId: input.defaultModelId,
+          provider: input.provider ?? 'openai-compatible',
+          baseUrl: input.baseUrl ?? 'https://api.openai.com/v1',
+          defaultModelId: input.defaultModelId ?? 'gpt-5.5',
           status: 'active',
           lastTestStatus: null,
           lastTestError: null,
@@ -229,6 +286,10 @@ describe('ChannelsRouteComponent', () => {
     await userEvent.click(channelNameInput);
     await userEvent.type(channelNameInput, 'Anthropic 备链');
     expect(channelNameInput).toHaveFocus();
+    await userEvent.selectOptions(
+      getInputElement<HTMLSelectElement>(createChannelDialog, '#channel-provider'),
+      'openai-compatible',
+    );
     setControlValue(
       getInputElement<HTMLInputElement>(createChannelDialog, '#channel-base-url'),
       'https://api.anthropic.com/v1',
@@ -243,6 +304,7 @@ describe('ChannelsRouteComponent', () => {
     await waitFor(() => {
       expect(api.createChannel).toHaveBeenCalledWith({
         name: 'Anthropic 备链',
+        provider: 'openai-compatible',
         baseUrl: 'https://api.anthropic.com/v1',
         apiKey: 'sk-ant',
         defaultModelId: 'claude-3-7-sonnet',
@@ -354,6 +416,7 @@ describe('ChannelsRouteComponent', () => {
       {
         id: 'channel-1',
         name: 'OpenAI 主链路',
+        provider: 'openai-compatible',
         baseUrl: 'https://api.openai.com/v1',
         defaultModelId: 'gpt-4o',
         status: 'active',
@@ -407,6 +470,7 @@ describe('ChannelsRouteComponent', () => {
       {
         id: 'channel-1',
         name: 'OpenAI 主链路',
+        provider: 'openai-compatible',
         baseUrl: 'https://api.openai.com/v1',
         defaultModelId: 'gpt-4o',
         status: 'active',
@@ -546,6 +610,7 @@ describe('ChannelsRouteComponent', () => {
     await waitFor(() => {
       expect(api.updateChannel).toHaveBeenCalledWith('channel-1', {
         name: 'OpenAI 高优先级链路',
+        provider: 'openai-compatible',
         baseUrl: 'https://gateway.openai.example/v1',
         apiKey: 'sk-updated',
         defaultModelId: 'gpt-4.1',

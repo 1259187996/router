@@ -24,6 +24,7 @@ export const channels = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
+    provider: text('provider').default('openai-compatible').notNull(),
     baseUrl: text('base_url').notNull(),
     apiKeyEncrypted: text('api_key_encrypted').notNull(),
     defaultModelId: text('default_model_id').notNull(),

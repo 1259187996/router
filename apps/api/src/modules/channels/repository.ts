@@ -3,9 +3,11 @@ import { channelModels, channelRoutes, channels, logicalModels } from '../../db/
 import type { AppDb } from '../auth/repository.js';
 import type {
   ChannelModelInput,
+  CreateChannelPreparedInput,
   CreateChannelInput,
   CreateLogicalModelInput,
   PreparedLogicalModelRouteInput,
+  UpdateChannelPreparedInput,
   UpdateChannelInput,
   UpdateLogicalModelInput
 } from './schema.js';
@@ -22,26 +24,43 @@ type PgError = Error & {
 export class ChannelsRepository {
   constructor(private readonly db: AppDb) {}
 
-  async createChannel(userId: string, input: CreateChannelInput) {
-    const [channel] = await this.db
-      .insert(channels)
-      .values({
-        userId,
-        name: input.name,
-        baseUrl: input.baseUrl,
-        apiKeyEncrypted: input.apiKey,
-        defaultModelId: input.defaultModelId,
-        status: 'active'
-      })
-      .returning();
+  async createChannel(userId: string, input: CreateChannelPreparedInput) {
+    return this.db.transaction(async (tx) => {
+      const [channel] = await tx
+        .insert(channels)
+        .values({
+          userId,
+          name: input.name,
+          provider: input.provider,
+          baseUrl: input.baseUrl,
+          apiKeyEncrypted: input.apiKey,
+          defaultModelId: input.defaultModelId,
+          status: 'active'
+        })
+        .returning();
 
-    return channel;
+      if (input.models && input.models.length > 0) {
+        await tx.insert(channelModels).values(
+          input.models.map((model) => ({
+            userId,
+            channelId: channel.id,
+            upstreamModelId: model.upstreamModelId,
+            inputPricePer1m: model.inputPricePer1m,
+            outputPricePer1m: model.outputPricePer1m,
+            currency: model.currency,
+            status: 'active' as const
+          }))
+        );
+      }
+
+      return channel;
+    });
   }
 
   async updateChannelByIdAndUserId(
     channelId: string,
     userId: string,
-    input: UpdateChannelInput & { apiKeyEncrypted?: string }
+    input: UpdateChannelPreparedInput & { apiKeyEncrypted?: string }
   ) {
     const updateValues: Partial<typeof channels.$inferInsert> = {
       updatedAt: new Date()
@@ -49,6 +68,10 @@ export class ChannelsRepository {
 
     if (input.name !== undefined) {
       updateValues.name = input.name;
+    }
+
+    if (input.provider !== undefined) {
+      updateValues.provider = input.provider;
     }
 
     if (input.baseUrl !== undefined) {
@@ -104,6 +127,7 @@ export class ChannelsRepository {
       .select({
         id: channels.id,
         name: channels.name,
+        provider: channels.provider,
         baseUrl: channels.baseUrl,
         defaultModelId: channels.defaultModelId,
         status: channels.status,

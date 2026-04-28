@@ -17,6 +17,15 @@ const chatCompletionResponseSchema = z.object({
     )
     .min(1)
 });
+const anthropicMessageResponseSchema = z.object({
+  content: z
+    .array(
+      z.object({
+        type: z.string()
+      })
+    )
+    .min(1)
+});
 
 export async function testOpenAiCompatibleChannel(input: {
   apiKey: string;
@@ -54,6 +63,71 @@ export async function testOpenAiCompatibleChannel(input: {
     }
 
     chatCompletionResponseSchema.parse(JSON.parse(response.body));
+  } catch (error) {
+    if (error instanceof SyntaxError || error instanceof ZodError) {
+      throw new Error('CHANNEL_TEST_FAILED:INVALID_RESPONSE');
+    }
+
+    if (error instanceof Error && error.message === 'CHANNEL_TEST_RESPONSE_TOO_LARGE') {
+      throw new Error('CHANNEL_TEST_FAILED:RESPONSE_TOO_LARGE');
+    }
+
+    if (
+      error instanceof Error &&
+      (error.name === 'AbortError' ||
+        error.name === 'TimeoutError' ||
+        error.message === 'CHANNEL_TEST_TIMEOUT')
+    ) {
+      throw new Error('CHANNEL_TEST_FAILED:TIMEOUT');
+    }
+
+    if (error instanceof Error && error.message.startsWith('CHANNEL_TEST_FAILED:')) {
+      throw error;
+    }
+
+    throw new Error('CHANNEL_TEST_FAILED:FETCH_ERROR');
+  }
+
+  return { ok: true };
+}
+
+export async function testAnthropicMessagesChannel(input: {
+  apiKey: string;
+  model: string;
+  target: VerifiedUpstreamTarget;
+  timeoutMs?: number;
+}) {
+  const baseUrl = input.target.url.toString().endsWith('/')
+    ? input.target.url.toString()
+    : `${input.target.url.toString()}/`;
+  const url = new URL('messages', baseUrl);
+  const timeoutMs = input.timeoutMs ?? 5000;
+
+  try {
+    const response = await postJsonWithPinnedLookup({
+      body: {
+        model: input.model,
+        messages: [{ role: 'user', content: 'ping' }],
+        max_tokens: 1
+      },
+      headers: {
+        'anthropic-version': '2023-06-01',
+        'x-api-key': input.apiKey
+      },
+      target: input.target,
+      timeoutMs,
+      url
+    });
+
+    if (response.statusCode >= 300 && response.statusCode < 400) {
+      throw new Error('CHANNEL_TEST_FAILED:REDIRECT');
+    }
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw new Error(`CHANNEL_TEST_FAILED:${response.statusCode}`);
+    }
+
+    anthropicMessageResponseSchema.parse(JSON.parse(response.body));
   } catch (error) {
     if (error instanceof SyntaxError || error instanceof ZodError) {
       throw new Error('CHANNEL_TEST_FAILED:INVALID_RESPONSE');

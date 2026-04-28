@@ -37,6 +37,7 @@ export function createMockUpstream(options?: { basePath?: string; bodyLimit?: nu
   const completionsPath = `${basePath}/chat/completions`;
   const embeddingsPath = `${basePath}/embeddings`;
   const responsesPath = `${basePath}/responses`;
+  const anthropicMessagesPath = `${basePath}/messages`;
 
   async function handleRequest(request: {
     headers: Record<string, unknown>;
@@ -317,6 +318,96 @@ export function createMockUpstream(options?: { basePath?: string; bodyLimit?: nu
         });
       });
 
+      server.post(anthropicMessagesPath, async (request, reply) => {
+        const result = await handleRequest({
+          headers: request.headers as Record<string, unknown>,
+          body: (request.body ?? {}) as MockRequestBody
+        });
+
+        if (result.shouldFailBeforeBody) {
+          reply.raw.destroy(new Error('mock upstream failed before body'));
+          return reply;
+        }
+
+        if (result.responseOverride?.delayMs) {
+          const delayMs = result.responseOverride.delayMs;
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+
+        if (result.responseOverride) {
+          if (result.responseOverride.headers) {
+            for (const [name, value] of Object.entries(result.responseOverride.headers)) {
+              reply.header(name, value);
+            }
+          }
+
+          reply.status(result.responseOverride.statusCode ?? 200);
+
+          if (result.responseOverride.rawBody !== undefined) {
+            return reply.send(result.responseOverride.rawBody);
+          }
+
+          if (result.responseOverride.chunks) {
+            reply.hijack();
+            reply.raw.statusCode = result.responseOverride.statusCode ?? 200;
+
+            if (result.responseOverride.headers) {
+              for (const [name, value] of Object.entries(result.responseOverride.headers)) {
+                reply.raw.setHeader(name, value);
+              }
+            }
+
+            reply.raw.flushHeaders?.();
+
+            for (const chunk of result.responseOverride.chunks) {
+              reply.raw.write(chunk);
+
+              if (result.responseOverride.chunkDelayMs) {
+                await new Promise((resolve) =>
+                  setTimeout(resolve, result.responseOverride?.chunkDelayMs)
+                );
+              }
+            }
+
+            reply.raw.end();
+            return reply;
+          }
+
+          return reply.send(result.responseOverride.body ?? {});
+        }
+
+        if (
+          typeof result.body.model !== 'string' ||
+          !['sk-ant-test', 'sk-test'].includes(String(request.headers['x-api-key'])) ||
+          request.headers['anthropic-version'] !== '2023-06-01'
+        ) {
+          reply.status(401).send({
+            error: {
+              message: 'Unauthorized'
+            }
+          });
+          return;
+        }
+
+        reply.send({
+          id: 'msg_test',
+          type: 'message',
+          role: 'assistant',
+          model: result.body.model,
+          content: [
+            {
+              type: 'text',
+              text: getAnthropicOutputText(result.body)
+            }
+          ],
+          stop_reason: 'end_turn',
+          usage: {
+            input_tokens: 5,
+            output_tokens: 2
+          }
+        });
+      });
+
       try {
         const address = await server.listen({
           host: '127.0.0.1',
@@ -370,4 +461,29 @@ function getResponseOutputText(body: MockRequestBody) {
   }
 
   return 'pong';
+}
+
+function getAnthropicOutputText(body: MockRequestBody) {
+  if (!Array.isArray(body.messages)) {
+    return 'pong';
+  }
+
+  const lastUserMessage = [...body.messages]
+    .reverse()
+    .find(
+      (message): message is { role: string; content?: unknown } =>
+        Boolean(message) &&
+        typeof message === 'object' &&
+        message !== null &&
+        'role' in message &&
+        (message as { role?: unknown }).role === 'user'
+    );
+
+  if (!lastUserMessage) {
+    return 'pong';
+  }
+
+  return typeof lastUserMessage.content === 'string'
+    ? `anthropic:${lastUserMessage.content}`
+    : 'pong';
 }

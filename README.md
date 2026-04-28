@@ -255,8 +255,20 @@ pnpm dev
 需要填写：
 
 - `name`：渠道名称，自己识别用
-- `baseUrl`：上游 API 根地址
+- `provider`：供应商类型
 - `apiKey`：上游渠道密钥
+
+如果选择的是内置供应商，只需要填写渠道名称和 API Key：
+
+- OpenAI：自动使用 `https://api.openai.com/v1`
+- Anthropic：自动使用 `https://api.anthropic.com/v1`，并调用 `/messages`
+- DeepSeek：自动使用 `https://api.deepseek.com`
+
+系统会同时创建一个默认渠道模型，后续可以在渠道详情抽屉里继续增删改模型、价格和路由。
+
+如果选择的是 `OpenAI Compatible`，才需要手动填写：
+
+- `baseUrl`：上游 API 根地址
 - `defaultModelId`：这个渠道默认测试模型
 
 `baseUrl` 该怎么填，取决于上游接口实际挂在哪：
@@ -271,11 +283,12 @@ pnpm dev
 
 填完后先点“测试渠道”。
 
-当前系统不需要手动选择 API 类型。它会根据实际入口路径自动转发到：
+当前系统会根据渠道供应商和实际入口路径自动转发到：
 
 - `/chat/completions`
 - `/embeddings`
 - `/responses`
+- Anthropic 渠道会转成 Messages API 调用，返回结果再标准化成 OpenAI 风格响应
 
 ### 9.3 新建逻辑模型
 
@@ -326,9 +339,9 @@ pnpm dev
 
 创建成功后：
 
-- 右侧“新令牌回显”区域会显示原始 token
+- 弹窗会首次显示原始 token，并提供复制按钮
 - 这个 token 才能给 SDK / Codex 使用
-- 列表里的“令牌 ID”不能直接调用接口
+- 列表里的 token 默认脱敏显示，可以按需点击显示或快速复制
 
 建议创建后立刻复制并保存，因为原始 token 只展示一次。
 
@@ -506,9 +519,71 @@ codex login status
 
 如果显示的是 `rt_...` 这类 token，说明 Codex 现在会先打你的 router。
 
-## 12. 常见问题
+## 12. 如何配置 Claude Code
 
-### 12.1 登录控制台失败
+Claude Code 使用 Anthropic Messages 格式，不走 OpenAI 风格的 `/v1/responses`。
+
+本地开发时，`ANTHROPIC_BASE_URL` 要指向 API 服务：
+
+```text
+http://127.0.0.1:3001
+```
+
+不要写成前端端口，也不要写成上游 DeepSeek 地址：
+
+- 前端 Vite 常见是 `5173`
+- Docker Web 常见是 `3000`
+- API 默认是 `3001`
+
+### 12.1 在 router 里准备 DeepSeek 渠道
+
+建议：
+
+- 渠道供应商选择 `DeepSeek`
+- 只填写 DeepSeek API Key
+- 逻辑模型 alias 使用 `deepseek-v4-pro`
+- 渠道模型 `upstreamModelId` 使用 `deepseek-v4-pro`
+- 创建一枚绑定该逻辑模型的 router token
+
+Claude Code 侧可以带 `[1m]` 后缀，router 会把 `deepseek-v4-pro[1m]` 匹配到逻辑模型 `deepseek-v4-pro`。
+
+### 12.2 修改 `~/.claude/settings.json`
+
+示例：
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:3001",
+    "ANTHROPIC_AUTH_TOKEN": "rt_xxx",
+    "ANTHROPIC_MODEL": "deepseek-v4-pro[1m]",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro[1m]",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-pro[1m]",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro[1m]",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"
+  }
+}
+```
+
+`ANTHROPIC_AUTH_TOKEN` 填 router 里创建出来的原始 `rt_...` token，不要填 DeepSeek API Key。
+
+如果 Claude Code 提示同时存在 `ANTHROPIC_AUTH_TOKEN` 和 `/login` 登录态，先执行：
+
+```bash
+claude /logout
+```
+
+这样 Claude Code 会使用 settings 里的 router token。
+
+router 同时兼容这些 Anthropic Messages 入站路径：
+
+- `POST /v1/messages`
+- `POST /v1/anthropic/messages`
+- `POST /v1/anthropic/v1/messages`
+
+## 13. 常见问题
+
+### 13.1 登录控制台失败
 
 常见原因：
 
@@ -517,7 +592,7 @@ codex login status
 - 管理员账号已经存在，但你后来改了 `.env`，seed 不会覆盖旧账号
 - 默认登录信息是 `admin / admin123`
 
-### 12.2 调用网关返回 `401 Unauthorized`
+### 13.2 调用网关返回 `401 Unauthorized`
 
 优先检查：
 
@@ -527,7 +602,7 @@ codex login status
 - token 预算是否耗尽
 - token 绑定的逻辑模型是否仍为 `active`
 
-### 12.3 返回 `Model route not found`
+### 13.3 返回 `Model route not found`
 
 说明请求里的 `model` 找不到对应逻辑模型路由。
 
@@ -537,7 +612,7 @@ codex login status
 - 逻辑模型 alias
 - 该逻辑模型下是否存在 active route
 
-### 12.4 上游报模型不可用
+### 13.4 上游报模型不可用
 
 说明 `upstreamModelId` 配错了。
 
@@ -549,7 +624,7 @@ codex login status
 
 那 router 最终转发给上游的就是错误模型名。
 
-### 12.5 请求成功但显示“需复核”
+### 13.5 请求成功但显示“需复核”
 
 这表示请求本身成功，但系统没拿到可自动结算的 usage。
 
@@ -558,21 +633,21 @@ codex login status
 - 不会自动计算本地结算
 - 不会自动推进 token 已用预算
 
-### 12.6 日志中看不到“上游原价”
+### 13.6 日志中看不到“上游原价”
 
 只有当上游在响应里明确返回类似 `cost_usd` / `total_cost_usd` 之类字段时，系统才能展示“上游原价”。
 
 如果上游没给，只能展示本地价格表结算结果。
 
-## 13. 测试
+## 14. 测试
 
-### 13.1 单元 / 集成测试
+### 14.1 单元 / 集成测试
 
 ```bash
 pnpm test
 ```
 
-### 13.2 E2E
+### 14.2 E2E
 
 ```bash
 pnpm e2e

@@ -6,6 +6,7 @@ import {
   channels,
   requestLogs
 } from '../../src/db/schema/index.js';
+import { encryptChannelSecret } from '../../src/modules/channels/secret.js';
 import { createMockUpstream } from '../helpers/mock-upstream.js';
 import { seedGatewayToken } from '../helpers/login.js';
 import { createTestDb } from '../helpers/test-db.js';
@@ -161,6 +162,112 @@ describe('gateway chat and embeddings routes', () => {
       expect(storedLog.startedAt).toBeInstanceOf(Date);
       expect(storedLog.finishedAt).toBeInstanceOf(Date);
       expect(storedLog.durationMs).toBeGreaterThanOrEqual(0);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('translates chat completions to Anthropic Messages API and normalizes the response', async () => {
+    const app = await buildApp({
+      logger: false,
+      db: db.db,
+      channelKeyEncryptionSecret
+    });
+
+    try {
+      const token = await seedGatewayToken(db.db, primaryUpstream.baseUrl, {
+        alias: 'anthropic-chat-alias',
+        channelKeyEncryptionSecret,
+        upstreamModelId: 'claude-sonnet-4-5-20250929'
+      });
+
+      await db.db
+        .update(channels)
+        .set({
+          provider: 'anthropic',
+          apiKeyEncrypted: encryptChannelSecret('sk-ant-test', channelKeyEncryptionSecret)
+        })
+        .where(eq(channels.id, token.primaryChannelId));
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/chat/completions',
+        headers: {
+          authorization: `Bearer ${token.rawToken}`
+        },
+        payload: {
+          model: token.alias,
+          messages: [
+            { role: 'system', content: 'system note' },
+            { role: 'user', content: 'hello anthropic' }
+          ]
+        }
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        object: 'chat.completion',
+        model: 'claude-sonnet-4-5-20250929',
+        choices: [
+          {
+            finish_reason: 'stop',
+            message: {
+              role: 'assistant',
+              content: 'anthropic:hello anthropic'
+            }
+          }
+        ],
+        usage: {
+          prompt_tokens: 5,
+          completion_tokens: 2,
+          total_tokens: 7
+        }
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('passes Anthropic error responses through without normalizing them as chat completions', async () => {
+    const app = await buildApp({
+      logger: false,
+      db: db.db,
+      channelKeyEncryptionSecret
+    });
+
+    try {
+      const token = await seedGatewayToken(db.db, primaryUpstream.baseUrl, {
+        alias: 'anthropic-error-alias',
+        channelKeyEncryptionSecret,
+        upstreamModelId: 'claude-sonnet-4-5-20250929'
+      });
+
+      await db.db
+        .update(channels)
+        .set({
+          provider: 'anthropic',
+          apiKeyEncrypted: encryptChannelSecret('sk-ant-wrong', channelKeyEncryptionSecret)
+        })
+        .where(eq(channels.id, token.primaryChannelId));
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/chat/completions',
+        headers: {
+          authorization: `Bearer ${token.rawToken}`
+        },
+        payload: {
+          model: token.alias,
+          messages: [{ role: 'user', content: 'hello anthropic' }]
+        }
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({
+        error: {
+          message: 'Unauthorized'
+        }
+      });
     } finally {
       await app.close();
     }

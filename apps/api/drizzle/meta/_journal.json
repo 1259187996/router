@@ -36,6 +36,13 @@
       "when": 1777354800000,
       "tag": "0004_steady_token_encrypted",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777444800000,
+      "tag": "0005_smart_channel_provider",
+      "breakpoints": true
     }
   ]
 }

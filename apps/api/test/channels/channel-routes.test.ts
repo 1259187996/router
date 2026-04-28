@@ -197,6 +197,53 @@ describe('channel routes', () => {
     }
   });
 
+  it('creates a preset provider channel with only api key and seeds its default model', async () => {
+    const app = await buildApp({ logger: false, db: db.db });
+
+    try {
+      const { cookie: adminCookie } = await loginAsAdmin(app);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/internal/channels',
+        headers: { cookie: adminCookie },
+        payload: {
+          name: 'anthropic-main',
+          provider: 'anthropic',
+          apiKey: 'sk-ant-test'
+        }
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json().channel).toMatchObject({
+        name: 'anthropic-main',
+        provider: 'anthropic',
+        baseUrl: 'https://api.anthropic.com/v1',
+        defaultModelId: 'claude-sonnet-4-5-20250929',
+        status: 'active'
+      });
+
+      const detail = await app.inject({
+        method: 'GET',
+        url: `/internal/channels/${response.json().channel.id as string}`,
+        headers: { cookie: adminCookie }
+      });
+
+      expect(detail.statusCode).toBe(200);
+      expect(detail.json().models).toEqual([
+        expect.objectContaining({
+          upstreamModelId: 'claude-sonnet-4-5-20250929',
+          inputPricePer1m: '0.0000',
+          outputPricePer1m: '0.0000',
+          currency: 'USD',
+          status: 'active'
+        })
+      ]);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('updates and disables channels and manages multiple channel models in channel detail', async () => {
     const app = await buildApp({ logger: false, db: db.db });
 
@@ -899,6 +946,40 @@ describe('channel routes', () => {
 
       expect(testChannel.statusCode).toBe(200);
       expect(testChannel.json()).toEqual({ ok: true });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('tests anthropic provider channels through the Messages API', async () => {
+    const app = await buildApp({ logger: false, db: db.db });
+
+    try {
+      const { cookie: adminCookie } = await loginAsAdmin(app);
+
+      const createChannel = await app.inject({
+        method: 'POST',
+        url: '/internal/channels',
+        headers: { cookie: adminCookie },
+        payload: {
+          name: 'anthropic-test-channel',
+          provider: 'anthropic',
+          baseUrl: upstreamWithBasePath.baseUrl,
+          apiKey: 'sk-ant-test',
+          defaultModelId: 'claude-sonnet-4-5-20250929'
+        }
+      });
+
+      expect(createChannel.statusCode).toBe(201);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/internal/channels/${createChannel.json().channel.id as string}/test`,
+        headers: { cookie: adminCookie }
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ ok: true });
     } finally {
       await app.close();
     }

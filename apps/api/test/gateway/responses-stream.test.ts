@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { desc, eq } from 'drizzle-orm';
 import { buildApp } from '../../src/app.js';
-import { requestLogs } from '../../src/db/schema/index.js';
+import { channels, requestLogs } from '../../src/db/schema/index.js';
+import { encryptChannelSecret } from '../../src/modules/channels/secret.js';
 import { createMockUpstream } from '../helpers/mock-upstream.js';
 import { seedGatewayToken } from '../helpers/login.js';
 import { createTestDb } from '../helpers/test-db.js';
@@ -250,6 +251,79 @@ describe('gateway responses route', () => {
         logicalModelAlias: token.alias,
         requestStatus: 'success',
         finalUpstreamModelId: 'gpt-4.1-omitted-upstream'
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('translates non-stream responses requests to Anthropic Messages API', async () => {
+    const app = await buildApp({
+      logger: false,
+      db: db.db,
+      channelKeyEncryptionSecret
+    });
+
+    try {
+      const token = await seedGatewayToken(db.db, primaryUpstream.baseUrl, {
+        alias: 'anthropic-responses-alias',
+        channelKeyEncryptionSecret,
+        upstreamModelId: 'claude-sonnet-4-5-20250929'
+      });
+
+      await db.db
+        .update(channels)
+        .set({
+          provider: 'anthropic',
+          apiKeyEncrypted: encryptChannelSecret('sk-ant-test', channelKeyEncryptionSecret)
+        })
+        .where(eq(channels.id, token.primaryChannelId));
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/responses',
+        headers: {
+          authorization: `Bearer ${token.rawToken}`
+        },
+        payload: {
+          model: token.alias,
+          input: 'hello via responses'
+        }
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        object: 'response',
+        status: 'completed',
+        model: 'claude-sonnet-4-5-20250929',
+        output: [
+          {
+            type: 'message',
+            role: 'assistant',
+            content: [
+              {
+                type: 'output_text',
+                text: 'anthropic:hello via responses'
+              }
+            ]
+          }
+        ],
+        usage: {
+          input_tokens: 5,
+          output_tokens: 2,
+          total_tokens: 7
+        }
+      });
+
+      const storedLog = await latestLogForToken(token.tokenId);
+
+      expect(storedLog).toMatchObject({
+        endpointType: 'responses',
+        logicalModelAlias: token.alias,
+        requestStatus: 'success',
+        finalUpstreamModelId: 'claude-sonnet-4-5-20250929',
+        inputTokens: 5,
+        outputTokens: 2
       });
     } finally {
       await app.close();

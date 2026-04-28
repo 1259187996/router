@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { channelProviderIds, getChannelProviderConfig, type ChannelProvider } from '@router/shared';
 import { parseSupportedUpstreamBaseUrl } from './upstream-safety.js';
 
 const decimalPriceSchema = z.string().regex(/^\d+(\.\d{1,4})?$/).refine((value) => {
@@ -9,6 +10,15 @@ const decimalPriceSchema = z.string().regex(/^\d+(\.\d{1,4})?$/).refine((value) 
 });
 
 const resourceStatusSchema = z.enum(['active', 'disabled']);
+const channelProviderSchema = z.enum(channelProviderIds);
+const baseUrlSchema = z.string().trim().url().refine((value) => {
+  try {
+    parseSupportedUpstreamBaseUrl(value);
+    return true;
+  } catch {
+    return false;
+  }
+});
 
 export const channelModelSchema = z.object({
   upstreamModelId: z.string().trim().min(1),
@@ -17,20 +27,34 @@ export const channelModelSchema = z.object({
   currency: z.string().trim().min(1)
 });
 
-export const createChannelSchema = z.object({
-  name: z.string().trim().min(1),
-  baseUrl: z.string().trim().url().refine((value) => {
-    try {
-      parseSupportedUpstreamBaseUrl(value);
-      return true;
-    } catch {
-      return false;
+export const createChannelSchema = z
+  .object({
+    name: z.string().trim().min(1),
+    provider: channelProviderSchema.default('openai-compatible'),
+    baseUrl: baseUrlSchema.optional(),
+    apiKey: z.string().trim().min(1),
+    defaultModelId: z.string().trim().min(1).optional(),
+    models: z.array(channelModelSchema).optional()
+  })
+  .superRefine((input, ctx) => {
+    const providerConfig = getChannelProviderConfig(input.provider);
+
+    if (providerConfig.requiresBaseUrl && !input.baseUrl) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['baseUrl'],
+        message: 'Base URL is required for this provider'
+      });
     }
-  }),
-  apiKey: z.string().trim().min(1),
-  defaultModelId: z.string().trim().min(1),
-  models: z.array(channelModelSchema).optional()
-});
+
+    if (providerConfig.requiresBaseUrl && !input.defaultModelId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['defaultModelId'],
+        message: 'Default model is required for this provider'
+      });
+    }
+  });
 
 export const channelIdParamsSchema = z.object({
   channelId: z.string().uuid()
@@ -38,19 +62,8 @@ export const channelIdParamsSchema = z.object({
 
 export const updateChannelSchema = z.object({
   name: z.string().trim().min(1).optional(),
-  baseUrl: z
-    .string()
-    .trim()
-    .url()
-    .refine((value) => {
-      try {
-        parseSupportedUpstreamBaseUrl(value);
-        return true;
-      } catch {
-        return false;
-      }
-    })
-    .optional(),
+  provider: channelProviderSchema.optional(),
+  baseUrl: baseUrlSchema.optional(),
   apiKey: z.string().trim().min(1).optional(),
   defaultModelId: z.string().trim().min(1).optional(),
   status: resourceStatusSchema.optional()
@@ -116,6 +129,15 @@ export type UpdateChannelModelInput = z.infer<typeof updateChannelModelSchema>;
 export type CreateLogicalModelInput = z.infer<typeof createLogicalModelSchema>;
 export type UpdateLogicalModelInput = z.infer<typeof updateLogicalModelSchema>;
 export type LogicalModelRouteInput = z.infer<typeof logicalModelRouteSchema>;
+export type CreateChannelPreparedInput = Omit<CreateChannelInput, 'provider' | 'baseUrl' | 'defaultModelId'> & {
+  provider: ChannelProvider;
+  baseUrl: string;
+  defaultModelId: string;
+  models?: ChannelModelInput[];
+};
+export type UpdateChannelPreparedInput = Omit<UpdateChannelInput, 'provider'> & {
+  provider?: ChannelProvider;
+};
 export type PreparedLogicalModelRouteInput = {
   channelId: string;
   channelModelId?: string | null;

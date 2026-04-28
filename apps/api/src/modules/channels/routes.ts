@@ -17,6 +17,7 @@ function toChannelResponse(channel: {
   id: string;
   userId?: string;
   name: string;
+  provider: string;
   baseUrl: string;
   defaultModelId: string;
   status: 'active' | 'disabled';
@@ -119,6 +120,7 @@ export async function registerChannelRoutes(
           id: channel.id,
           userId: channel.userId,
           name: channel.name,
+          provider: channel.provider,
           baseUrl: channel.baseUrl,
           defaultModelId: channel.defaultModelId,
           status: channel.status,
