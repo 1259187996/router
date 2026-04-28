@@ -45,9 +45,17 @@ export function formatDuration(value: number | null | undefined) {
   return `${value} ms`;
 }
 
-export function formatTokenSummary(inputTokens: number | null | undefined, outputTokens: number | null | undefined) {
+export function formatTokenSummary(
+  inputTokens: number | null | undefined,
+  outputTokens: number | null | undefined,
+  cachedInputTokens?: number | null,
+) {
   if (inputTokens == null && outputTokens == null) {
     return '--';
+  }
+
+  if (cachedInputTokens != null) {
+    return `输入 ${inputTokens ?? '--'} / 缓存 ${cachedInputTokens} / 输出 ${outputTokens ?? '--'}`;
   }
 
   return `输入 ${inputTokens ?? '--'} / 输出 ${outputTokens ?? '--'}`;

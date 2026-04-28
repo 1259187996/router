@@ -23,6 +23,7 @@ const baseUrlSchema = z.string().trim().url().refine((value) => {
 export const channelModelSchema = z.object({
   upstreamModelId: z.string().trim().min(1),
   inputPricePer1m: decimalPriceSchema,
+  cachedInputPricePer1m: decimalPriceSchema.default('0.0000'),
   outputPricePer1m: decimalPriceSchema,
   currency: z.string().trim().min(1)
 });
@@ -86,6 +87,7 @@ const logicalModelRouteSchema = z
     channelModelId: z.string().uuid().optional(),
     upstreamModelId: z.string().trim().min(1).optional(),
     inputPricePer1m: decimalPriceSchema.optional(),
+    cachedInputPricePer1m: decimalPriceSchema.default('0.0000'),
     outputPricePer1m: decimalPriceSchema.optional(),
     currency: z.string().trim().min(1).optional(),
     priority: z.number().int().nonnegative()
@@ -143,6 +145,7 @@ export type PreparedLogicalModelRouteInput = {
   channelModelId?: string | null;
   upstreamModelId: string;
   inputPricePer1m: string;
+  cachedInputPricePer1m: string;
   outputPricePer1m: string;
   currency: string;
   priority: number;

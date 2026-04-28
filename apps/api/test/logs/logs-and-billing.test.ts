@@ -117,10 +117,12 @@ describe('logs and billing', () => {
     budgetLimitUsd?: string;
     primaryPrices?: {
       inputPricePer1m: string;
+      cachedInputPricePer1m?: string;
       outputPricePer1m: string;
     };
     fallbackPrices?: {
       inputPricePer1m: string;
+      cachedInputPricePer1m?: string;
       outputPricePer1m: string;
     };
   }) {
@@ -175,6 +177,7 @@ describe('logs and billing', () => {
             channelId: primaryChannel.json().channel.id as string,
             upstreamModelId: input.upstreamModelId ?? `${input.alias}-primary-upstream`,
             inputPricePer1m: input.primaryPrices?.inputPricePer1m ?? '50000.0000',
+            cachedInputPricePer1m: input.primaryPrices?.cachedInputPricePer1m ?? '0.0000',
             outputPricePer1m: input.primaryPrices?.outputPricePer1m ?? '100000.0000',
             currency: 'USD',
             priority: 1
@@ -184,8 +187,9 @@ describe('logs and billing', () => {
                 {
                   channelId: fallbackChannelId,
                   upstreamModelId:
-                    input.fallbackUpstreamModelId ?? `${input.alias}-fallback-upstream`,
+                  input.fallbackUpstreamModelId ?? `${input.alias}-fallback-upstream`,
                   inputPricePer1m: input.fallbackPrices?.inputPricePer1m ?? '75000.0000',
+                  cachedInputPricePer1m: input.fallbackPrices?.cachedInputPricePer1m ?? '0.0000',
                   outputPricePer1m: input.fallbackPrices?.outputPricePer1m ?? '150000.0000',
                   currency: 'USD',
                   priority: 2
@@ -558,6 +562,7 @@ describe('logs and billing', () => {
         reviewRequiredRequests: 1,
         totalTokens: 750,
         inputTokens: 600,
+        cachedInputTokens: 0,
         outputTokens: 150,
         settlementPriceUsd: '6.7500'
       });
@@ -644,6 +649,288 @@ describe('logs and billing', () => {
       expect(snapshot).toMatchObject({
         requestLogId: log.id as string,
         pricingSource: 'local_table'
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('separates cached input tokens from billable input tokens during settlement and overview aggregation', async () => {
+    const app = await buildApp({
+      logger: false,
+      db: db.db,
+      channelKeyEncryptionSecret
+    });
+
+    try {
+      const ownerSession = await createUserSession(app, {
+        email: 'logs-cached-input-owner@example.com',
+        displayName: 'Logs Cached Input Owner',
+        password: 'Password123!Password123!'
+      });
+      const token = await createGatewayToken(app, {
+        session: ownerSession,
+        alias: 'logs-cached-input',
+        upstreamBaseUrl: primaryUpstream.baseUrl,
+        upstreamModelId: 'gpt-cached-input',
+        primaryPrices: {
+          inputPricePer1m: '10.0000',
+          cachedInputPricePer1m: '1.0000',
+          outputPricePer1m: '20.0000'
+        }
+      });
+
+      primaryUpstream.setNextResponseOverride({
+        body: {
+          id: 'chatcmpl-cached-input',
+          object: 'chat.completion',
+          created: 1,
+          model: 'gpt-cached-input',
+          choices: [
+            {
+              index: 0,
+              finish_reason: 'stop',
+              message: {
+                role: 'assistant',
+                content: 'cached input response'
+              }
+            }
+          ],
+          usage: {
+            prompt_tokens: 1000,
+            completion_tokens: 100,
+            total_tokens: 1100,
+            prompt_tokens_details: {
+              cached_tokens: 600
+            }
+          }
+        }
+      });
+
+      const gatewayResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/chat/completions',
+        headers: {
+          authorization: `Bearer ${token.rawToken}`
+        },
+        payload: {
+          model: token.alias,
+          messages: [{ role: 'user', content: 'use cached context' }]
+        }
+      });
+
+      expect(gatewayResponse.statusCode).toBe(200);
+
+      const log = await getLogByAlias(app, ownerSession, token.alias);
+      const detail = await getLogDetail(app, ownerSession, log.id as string);
+
+      expect(detail.statusCode).toBe(200);
+      expect(detail.json()).toMatchObject({
+        log: {
+          logicalModelAlias: token.alias,
+          requestStatus: 'success',
+          settlementPriceUsd: '0.0066',
+          inputTokens: 1000,
+          cachedInputTokens: 600,
+          outputTokens: 100
+        },
+        finalRoute: {
+          inputPricePer1m: '10.0000',
+          cachedInputPricePer1m: '1.0000',
+          outputPricePer1m: '20.0000'
+        }
+      });
+
+      const overview = await app.inject({
+        method: 'GET',
+        url: '/internal/overview',
+        headers: {
+          cookie: ownerSession.cookie
+        }
+      });
+
+      expect(overview.statusCode).toBe(200);
+      expect(overview.json()).toMatchObject({
+        totalTokens: 1100,
+        inputTokens: 1000,
+        cachedInputTokens: 600,
+        outputTokens: 100,
+        settlementPriceUsd: '0.0066'
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('extracts cached input tokens from Responses API usage details', async () => {
+    const app = await buildApp({
+      logger: false,
+      db: db.db,
+      channelKeyEncryptionSecret
+    });
+
+    try {
+      const ownerSession = await createUserSession(app, {
+        email: 'logs-responses-cached-input-owner@example.com',
+        displayName: 'Logs Responses Cached Input Owner',
+        password: 'Password123!Password123!'
+      });
+      const token = await createGatewayToken(app, {
+        session: ownerSession,
+        alias: 'logs-responses-cached-input',
+        upstreamBaseUrl: primaryUpstream.baseUrl,
+        upstreamModelId: 'gpt-responses-cached-input',
+        primaryPrices: {
+          inputPricePer1m: '10.0000',
+          cachedInputPricePer1m: '1.0000',
+          outputPricePer1m: '20.0000'
+        }
+      });
+
+      primaryUpstream.setNextResponseOverride({
+        body: {
+          id: 'resp_cached_input_1',
+          object: 'response',
+          status: 'completed',
+          model: 'gpt-responses-cached-input',
+          output: [
+            {
+              type: 'message',
+              id: 'msg_cached_input_1',
+              role: 'assistant',
+              content: [
+                {
+                  type: 'output_text',
+                  text: 'responses cached input'
+                }
+              ]
+            }
+          ],
+          usage: {
+            input_tokens: 1200,
+            output_tokens: 80,
+            total_tokens: 1280,
+            input_tokens_details: {
+              cached_tokens: 500
+            }
+          }
+        }
+      });
+
+      const gatewayResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/responses',
+        headers: {
+          authorization: `Bearer ${token.rawToken}`
+        },
+        payload: {
+          model: token.alias,
+          input: 'responses cached context'
+        }
+      });
+
+      expect(gatewayResponse.statusCode).toBe(200);
+
+      const log = await getLogByAlias(app, ownerSession, token.alias);
+      const detail = await getLogDetail(app, ownerSession, log.id as string);
+
+      expect(detail.statusCode).toBe(200);
+      expect(detail.json()).toMatchObject({
+        log: {
+          logicalModelAlias: token.alias,
+          requestStatus: 'success',
+          settlementPriceUsd: '0.0091',
+          inputTokens: 1200,
+          cachedInputTokens: 500,
+          outputTokens: 80
+        }
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('normalizes Anthropic cache-read usage into cached input tokens', async () => {
+    const app = await buildApp({
+      logger: false,
+      db: db.db,
+      channelKeyEncryptionSecret
+    });
+
+    try {
+      const ownerSession = await createUserSession(app, {
+        email: 'logs-anthropic-cached-input-owner@example.com',
+        displayName: 'Logs Anthropic Cached Input Owner',
+        password: 'Password123!Password123!'
+      });
+      const token = await createGatewayToken(app, {
+        session: ownerSession,
+        alias: 'logs-anthropic-cached-input',
+        upstreamBaseUrl: primaryUpstream.baseUrl,
+        upstreamModelId: 'claude-cached-input',
+        primaryPrices: {
+          inputPricePer1m: '10.0000',
+          cachedInputPricePer1m: '1.0000',
+          outputPricePer1m: '20.0000'
+        }
+      });
+
+      primaryUpstream.setNextResponseOverride({
+        body: {
+          id: 'msg_cached_input_1',
+          type: 'message',
+          role: 'assistant',
+          model: 'claude-cached-input',
+          content: [
+            {
+              type: 'text',
+              text: 'anthropic cached input'
+            }
+          ],
+          stop_reason: 'end_turn',
+          usage: {
+            input_tokens: 300,
+            cache_creation_input_tokens: 100,
+            cache_read_input_tokens: 700,
+            output_tokens: 50
+          }
+        }
+      });
+
+      const gatewayResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/messages',
+        headers: {
+          authorization: `Bearer ${token.rawToken}`,
+          'anthropic-version': '2023-06-01'
+        },
+        payload: {
+          model: token.alias,
+          max_tokens: 128,
+          messages: [
+            {
+              role: 'user',
+              content: 'anthropic cached context'
+            }
+          ]
+        }
+      });
+
+      expect(gatewayResponse.statusCode).toBe(200);
+
+      const log = await getLogByAlias(app, ownerSession, token.alias);
+      const detail = await getLogDetail(app, ownerSession, log.id as string);
+
+      expect(detail.statusCode).toBe(200);
+      expect(detail.json()).toMatchObject({
+        log: {
+          logicalModelAlias: token.alias,
+          requestStatus: 'success',
+          settlementPriceUsd: '0.0057',
+          inputTokens: 1100,
+          cachedInputTokens: 700,
+          outputTokens: 50
+        }
       });
     } finally {
       await app.close();

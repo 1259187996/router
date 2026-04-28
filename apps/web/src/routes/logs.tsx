@@ -70,6 +70,7 @@ export function LogsRouteComponent({
   };
   const tokens = tokensQuery.data?.tokens ?? [];
   const fallbackInputTokens = logs.reduce((total, log) => total + (log.inputTokens ?? 0), 0);
+  const fallbackCachedInputTokens = logs.reduce((total, log) => total + (log.cachedInputTokens ?? 0), 0);
   const fallbackOutputTokens = logs.reduce((total, log) => total + (log.outputTokens ?? 0), 0);
   const fallbackSummary = {
     totalRequests: pagination.total,
@@ -77,6 +78,7 @@ export function LogsRouteComponent({
     attentionRequests: logs.filter((log) => log.requestStatus !== "success").length,
     totalTokens: fallbackInputTokens + fallbackOutputTokens,
     inputTokens: fallbackInputTokens,
+    cachedInputTokens: fallbackCachedInputTokens,
     outputTokens: fallbackOutputTokens,
     settlementPriceUsd: logs.reduce((total, log) => total + parseUsd(log.settlementPriceUsd), 0).toFixed(4),
   };
@@ -110,7 +112,7 @@ export function LogsRouteComponent({
           {
             label: "Token 总数",
             value: formatInteger(summary.totalTokens),
-            detail: `输入 ${formatInteger(summary.inputTokens)} / 输出 ${formatInteger(summary.outputTokens)}`,
+            detail: `输入 ${formatInteger(summary.inputTokens)} / 缓存 ${formatInteger(summary.cachedInputTokens)} / 输出 ${formatInteger(summary.outputTokens)}`,
           },
           {
             label: "待关注",
@@ -193,7 +195,7 @@ export function LogsRouteComponent({
                   <TableCell>
                     <p className="font-medium">{formatUsd(log.settlementPriceUsd)}</p>
                     <p className="text-xs text-muted-foreground">上游 {formatUsd(log.rawUpstreamPriceUsd)}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{formatTokenSummary(log.inputTokens, log.outputTokens)}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{formatTokenSummary(log.inputTokens, log.outputTokens, log.cachedInputTokens)}</p>
                   </TableCell>
                   <TableCell>
                     <Badge variant={statusBadgeVariant(log.requestStatus)}>{getRequestStatusLabel(log.requestStatus)}</Badge>

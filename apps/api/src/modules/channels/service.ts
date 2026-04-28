@@ -370,6 +370,7 @@ export class ChannelsService {
           channelModelId?: string | null;
           upstreamModelId: string | null;
           inputPricePer1m: string;
+          cachedInputPricePer1m: string;
           outputPricePer1m: string;
           currency: string;
           priority: number;
@@ -399,6 +400,7 @@ export class ChannelsService {
           ...(row.routeChannelModelId ? { channelModelId: row.routeChannelModelId } : {}),
           upstreamModelId: row.routeUpstreamModelId,
           inputPricePer1m: row.routeInputPricePer1m!,
+          cachedInputPricePer1m: row.routeCachedInputPricePer1m!,
           outputPricePer1m: row.routeOutputPricePer1m!,
           currency: row.routeCurrency!,
           priority: row.routePriority!,
@@ -441,6 +443,7 @@ export class ChannelsService {
           channelModelId: channelModel.id,
           upstreamModelId: channelModel.upstreamModelId,
           inputPricePer1m: channelModel.inputPricePer1m,
+          cachedInputPricePer1m: channelModel.cachedInputPricePer1m,
           outputPricePer1m: channelModel.outputPricePer1m,
           currency: channelModel.currency,
           priority: route.priority
@@ -453,6 +456,7 @@ export class ChannelsService {
         channelModelId: null,
         upstreamModelId: route.upstreamModelId!,
         inputPricePer1m: route.inputPricePer1m!,
+        cachedInputPricePer1m: route.cachedInputPricePer1m,
         outputPricePer1m: route.outputPricePer1m!,
         currency: route.currency!,
         priority: route.priority
@@ -482,7 +486,10 @@ export class ChannelsService {
       defaultModelId,
       models:
         input.models && input.models.length > 0
-          ? input.models
+          ? input.models.map((model) => ({
+              ...model,
+              cachedInputPricePer1m: model.cachedInputPricePer1m ?? '0.0000'
+            }))
           : this.getDefaultChannelModels(provider)
     };
   }

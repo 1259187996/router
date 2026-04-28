@@ -46,6 +46,7 @@ export class ChannelsRepository {
             channelId: channel.id,
             upstreamModelId: model.upstreamModelId,
             inputPricePer1m: model.inputPricePer1m,
+            cachedInputPricePer1m: model.cachedInputPricePer1m,
             outputPricePer1m: model.outputPricePer1m,
             currency: model.currency,
             status: 'active' as const
@@ -150,6 +151,7 @@ export class ChannelsRepository {
         channelId,
         upstreamModelId: input.upstreamModelId,
         inputPricePer1m: input.inputPricePer1m,
+        cachedInputPricePer1m: input.cachedInputPricePer1m,
         outputPricePer1m: input.outputPricePer1m,
         currency: input.currency,
         status: 'active'
@@ -175,6 +177,10 @@ export class ChannelsRepository {
 
     if (input.inputPricePer1m !== undefined) {
       updateValues.inputPricePer1m = input.inputPricePer1m;
+    }
+
+    if (input.cachedInputPricePer1m !== undefined) {
+      updateValues.cachedInputPricePer1m = input.cachedInputPricePer1m;
     }
 
     if (input.outputPricePer1m !== undefined) {
@@ -314,6 +320,7 @@ export class ChannelsRepository {
         routeChannelModelId: channelRoutes.channelModelId,
         routeUpstreamModelId: channelRoutes.upstreamModelId,
         routeInputPricePer1m: channelRoutes.inputPricePer1m,
+        routeCachedInputPricePer1m: channelRoutes.cachedInputPricePer1m,
         routeOutputPricePer1m: channelRoutes.outputPricePer1m,
         routeCurrency: channelRoutes.currency,
         routePriority: channelRoutes.priority,
@@ -353,6 +360,7 @@ export class ChannelsRepository {
         routeChannelModelId: channelRoutes.channelModelId,
         routeUpstreamModelId: channelRoutes.upstreamModelId,
         routeInputPricePer1m: channelRoutes.inputPricePer1m,
+        routeCachedInputPricePer1m: channelRoutes.cachedInputPricePer1m,
         routeOutputPricePer1m: channelRoutes.outputPricePer1m,
         routeCurrency: channelRoutes.currency,
         routePriority: channelRoutes.priority,
@@ -424,6 +432,7 @@ export class ChannelsRepository {
             channelModelId: route.channelModelId ?? null,
             upstreamModelId: route.upstreamModelId,
             inputPricePer1m: route.inputPricePer1m,
+            cachedInputPricePer1m: route.cachedInputPricePer1m,
             outputPricePer1m: route.outputPricePer1m,
             currency: route.currency,
             priority: route.priority,
@@ -504,6 +513,7 @@ export class ChannelsRepository {
             channelModelId: route.channelModelId ?? null,
             upstreamModelId: route.upstreamModelId,
             inputPricePer1m: route.inputPricePer1m,
+            cachedInputPricePer1m: route.cachedInputPricePer1m,
             outputPricePer1m: route.outputPricePer1m,
             currency: route.currency,
             priority: route.priority,

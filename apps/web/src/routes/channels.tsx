@@ -166,12 +166,14 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
   const [modelForm, setModelForm] = useState({
     upstreamModelId: "",
     inputPricePer1m: "0.0000",
+    cachedInputPricePer1m: "0.0000",
     outputPricePer1m: "0.0000",
     currency: "USD",
   });
   const [editModelForm, setEditModelForm] = useState({
     upstreamModelId: "",
     inputPricePer1m: "0.0000",
+    cachedInputPricePer1m: "0.0000",
     outputPricePer1m: "0.0000",
     currency: "USD",
   });
@@ -263,6 +265,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
       setModelForm({
         upstreamModelId: "",
         inputPricePer1m: "0.0000",
+        cachedInputPricePer1m: "0.0000",
         outputPricePer1m: "0.0000",
         currency: "USD",
       });
@@ -277,6 +280,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
       api.updateChannelModel(selectedChannelId!, editingModelId!, {
         upstreamModelId: editModelForm.upstreamModelId,
         inputPricePer1m: editModelForm.inputPricePer1m,
+        cachedInputPricePer1m: editModelForm.cachedInputPricePer1m,
         outputPricePer1m: editModelForm.outputPricePer1m,
         currency: editModelForm.currency,
       }),
@@ -285,6 +289,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
       setEditModelForm({
         upstreamModelId: "",
         inputPricePer1m: "0.0000",
+        cachedInputPricePer1m: "0.0000",
         outputPricePer1m: "0.0000",
         currency: "USD",
       });
@@ -375,6 +380,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
     setEditModelForm({
       upstreamModelId: model.upstreamModelId,
       inputPricePer1m: model.inputPricePer1m,
+      cachedInputPricePer1m: model.cachedInputPricePer1m,
       outputPricePer1m: model.outputPricePer1m,
       currency: model.currency,
     });
@@ -613,7 +619,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                     <TableRow key={model.id}>
                       <TableCell className="font-medium">{model.upstreamModelId}</TableCell>
                       <TableCell className="font-mono text-xs">
-                        {model.inputPricePer1m} / {model.outputPricePer1m} {model.currency}
+                        {model.inputPricePer1m} / {model.cachedInputPricePer1m} / {model.outputPricePer1m} {model.currency}
                       </TableCell>
                       <TableCell>
                         <Badge variant={model.status === "active" ? "success" : "secondary"}>{model.status}</Badge>
@@ -687,7 +693,7 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
                         <div key={route.id} className="rounded-md bg-muted/50 p-3 text-sm">
                           <p className="font-medium">{route.upstreamModelId}</p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            priority {route.priority} / {route.inputPricePer1m} / {route.outputPricePer1m}
+                            priority {route.priority} / {route.inputPricePer1m} / {route.cachedInputPricePer1m} / {route.outputPricePer1m}
                           </p>
                         </div>
                       ))}
@@ -803,6 +809,8 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
             <Input id="channel-model-upstream-model-id" value={modelForm.upstreamModelId} onChange={(event) => setModelForm((c) => ({ ...c, upstreamModelId: event.target.value }))} />
             <Label htmlFor="channel-model-input-price">输入价格 / 1M</Label>
             <Input id="channel-model-input-price" value={modelForm.inputPricePer1m} onChange={(event) => setModelForm((c) => ({ ...c, inputPricePer1m: event.target.value }))} />
+            <Label htmlFor="channel-model-cached-input-price">缓存输入价格 / 1M</Label>
+            <Input id="channel-model-cached-input-price" value={modelForm.cachedInputPricePer1m} onChange={(event) => setModelForm((c) => ({ ...c, cachedInputPricePer1m: event.target.value }))} />
             <Label htmlFor="channel-model-output-price">输出价格 / 1M</Label>
             <Input id="channel-model-output-price" value={modelForm.outputPricePer1m} onChange={(event) => setModelForm((c) => ({ ...c, outputPricePer1m: event.target.value }))} />
             <Label htmlFor="channel-model-currency">币种</Label>
@@ -825,6 +833,8 @@ export function ChannelsRouteComponent({ api }: { api: ChannelsRouteApi }) {
             <Input id="edit-channel-model-upstream-model-id" value={editModelForm.upstreamModelId} onChange={(event) => setEditModelForm((c) => ({ ...c, upstreamModelId: event.target.value }))} />
             <Label htmlFor="edit-channel-model-input-price">输入价格 / 1M</Label>
             <Input id="edit-channel-model-input-price" value={editModelForm.inputPricePer1m} onChange={(event) => setEditModelForm((c) => ({ ...c, inputPricePer1m: event.target.value }))} />
+            <Label htmlFor="edit-channel-model-cached-input-price">缓存输入价格 / 1M</Label>
+            <Input id="edit-channel-model-cached-input-price" value={editModelForm.cachedInputPricePer1m} onChange={(event) => setEditModelForm((c) => ({ ...c, cachedInputPricePer1m: event.target.value }))} />
             <Label htmlFor="edit-channel-model-output-price">输出价格 / 1M</Label>
             <Input id="edit-channel-model-output-price" value={editModelForm.outputPricePer1m} onChange={(event) => setEditModelForm((c) => ({ ...c, outputPricePer1m: event.target.value }))} />
             <Label htmlFor="edit-channel-model-currency">币种</Label>

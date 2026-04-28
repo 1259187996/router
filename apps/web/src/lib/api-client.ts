@@ -40,6 +40,7 @@ export interface ChannelModelRecord {
   channelId: string;
   upstreamModelId: string;
   inputPricePer1m: string;
+  cachedInputPricePer1m: string;
   outputPricePer1m: string;
   currency: string;
   status: 'active' | 'disabled';
@@ -75,6 +76,7 @@ export interface UpdateChannelInput {
 export interface ChannelModelInput {
   upstreamModelId: string;
   inputPricePer1m: string;
+  cachedInputPricePer1m: string;
   outputPricePer1m: string;
   currency: string;
 }
@@ -93,6 +95,7 @@ export interface LogicalModelRouteRecord {
   channelModelId?: string | null;
   upstreamModelId: string | null;
   inputPricePer1m: string;
+  cachedInputPricePer1m?: string;
   outputPricePer1m: string;
   currency: string;
   priority: number;
@@ -128,6 +131,7 @@ export interface CreateLogicalModelInput {
     channelModelId?: string;
     upstreamModelId?: string;
     inputPricePer1m?: string;
+    cachedInputPricePer1m?: string;
     outputPricePer1m?: string;
     currency?: string;
     priority: number;
@@ -233,6 +237,7 @@ export interface RequestLogRecord {
   rawUpstreamPriceUsd: string | null;
   settlementPriceUsd: string | null;
   inputTokens: number | null;
+  cachedInputTokens: number | null;
   outputTokens: number | null;
   durationMs: number | null;
   errorSummary: string | null;
@@ -254,6 +259,7 @@ export interface ListLogsResponse {
     attentionRequests: number;
     totalTokens: number;
     inputTokens: number;
+    cachedInputTokens: number;
     outputTokens: number;
     settlementPriceUsd: string;
   };
@@ -271,6 +277,7 @@ export interface LogDetailRouteRecord {
   id: string;
   upstreamModelId: string | null;
   inputPricePer1m: string;
+  cachedInputPricePer1m: string;
   outputPricePer1m: string;
   currency: string;
   priority: number;
@@ -315,6 +322,7 @@ export interface OverviewResponse {
   reviewRequiredRequests: number;
   totalTokens: number;
   inputTokens: number;
+  cachedInputTokens: number;
   outputTokens: number;
   settlementPriceUsd: string;
 }

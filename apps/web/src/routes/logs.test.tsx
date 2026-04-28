@@ -17,6 +17,7 @@ describe('LogsRouteComponent', () => {
       settlementPriceUsd: '0.0821',
       rawUpstreamPriceUsd: '0.0790',
       inputTokens: 1000,
+      cachedInputTokens: 100,
       outputTokens: 200,
       durationMs: 842,
       errorSummary: null,
@@ -47,6 +48,7 @@ describe('LogsRouteComponent', () => {
       rawUpstreamPriceUsd: '0.0790',
       settlementPriceUsd: '0.0821',
       inputTokens: 1000,
+      cachedInputTokens: 100,
       outputTokens: 200,
       durationMs: 842,
       errorSummary: null,
@@ -64,6 +66,7 @@ describe('LogsRouteComponent', () => {
       id: 'route-1',
       upstreamModelId: 'gpt-4.1-mini',
       inputPricePer1m: '50.0000',
+      cachedInputPricePer1m: '5.0000',
       outputPricePer1m: '160.5000',
       currency: 'USD',
       priority: 1,
@@ -90,6 +93,7 @@ describe('LogsRouteComponent', () => {
           id: 'route-1',
           upstreamModelId: 'gpt-4.1-mini',
           inputPricePer1m: '50.0000',
+          cachedInputPricePer1m: '5.0000',
           outputPricePer1m: '160.5000',
           currency: 'USD',
           priority: 1,
@@ -110,6 +114,7 @@ describe('LogsRouteComponent', () => {
           attentionRequests: 3,
           totalTokens: 9876,
           inputTokens: 8000,
+          cachedInputTokens: 3000,
           outputTokens: 1876,
           settlementPriceUsd: '12.3400',
         },
@@ -137,13 +142,13 @@ describe('LogsRouteComponent', () => {
 
     expect(await screen.findByRole("heading", { name: "请求日志" })).toBeInTheDocument();
     expect(await screen.findByText('9,876')).toBeInTheDocument();
-    expect(await screen.findByText('输入 8,000 / 输出 1,876')).toBeInTheDocument();
+    expect(await screen.findByText('输入 8,000 / 缓存 3,000 / 输出 1,876')).toBeInTheDocument();
     const row = await screen.findByRole("row", { name: /responses/i });
 
     expect(within(row).getByText('responses')).toBeInTheDocument();
     expect(within(row).getByText('analysis-default')).toBeInTheDocument();
     expect(within(row).getByText('$0.0821')).toBeInTheDocument();
-    expect(within(row).getByText('输入 1000 / 输出 200')).toBeInTheDocument();
+    expect(within(row).getByText('输入 1000 / 缓存 100 / 输出 200')).toBeInTheDocument();
     expect(within(row).getByText('成功')).toBeInTheDocument();
     expect(within(row).getByRole('button', { name: '查看详情' })).toBeInTheDocument();
     expect(screen.getByText('第 1 / 1 页')).toBeInTheDocument();
@@ -165,6 +170,7 @@ describe('LogsRouteComponent', () => {
           attentionRequests: 6,
           totalTokens: 12345,
           inputTokens: 10000,
+          cachedInputTokens: 4000,
           outputTokens: 2345,
           settlementPriceUsd: '9.8765',
         },

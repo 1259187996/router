@@ -26,6 +26,7 @@ export class LogsRepository {
         successfulRequests: sql<number>`coalesce(sum(case when ${requestLogs.requestStatus} = 'success' then 1 else 0 end), 0)::int`,
         attentionRequests: sql<number>`coalesce(sum(case when ${requestLogs.requestStatus} <> 'success' then 1 else 0 end), 0)::int`,
         inputTokens: sql<number>`coalesce(sum(${requestLogs.inputTokens}), 0)::int`,
+        cachedInputTokens: sql<number>`coalesce(sum(${requestLogs.cachedInputTokens}), 0)::int`,
         outputTokens: sql<number>`coalesce(sum(${requestLogs.outputTokens}), 0)::int`,
         settlementPriceUsd: sql<string>`coalesce(sum(${requestLogs.settlementPriceUsd}), 0)::numeric(12, 4)::text`
       })
@@ -40,6 +41,7 @@ export class LogsRepository {
       .offset((input.page - 1) * input.pageSize);
 
     const inputTokens = summary?.inputTokens ?? 0;
+    const cachedInputTokens = summary?.cachedInputTokens ?? 0;
     const outputTokens = summary?.outputTokens ?? 0;
 
     return {
@@ -56,6 +58,7 @@ export class LogsRepository {
         attentionRequests: summary?.attentionRequests ?? 0,
         totalTokens: inputTokens + outputTokens,
         inputTokens,
+        cachedInputTokens,
         outputTokens,
         settlementPriceUsd: summary?.settlementPriceUsd ?? '0.0000'
       }
@@ -69,6 +72,7 @@ export class LogsRepository {
         successfulRequests: sql<number>`coalesce(sum(case when ${requestLogs.requestStatus} = 'success' then 1 else 0 end), 0)::int`,
         reviewRequiredRequests: sql<number>`coalesce(sum(case when ${requestLogs.requestStatus} = 'review_required' then 1 else 0 end), 0)::int`,
         inputTokens: sql<number>`coalesce(sum(${requestLogs.inputTokens}), 0)::int`,
+        cachedInputTokens: sql<number>`coalesce(sum(${requestLogs.cachedInputTokens}), 0)::int`,
         outputTokens: sql<number>`coalesce(sum(${requestLogs.outputTokens}), 0)::int`,
         settlementPriceUsd: sql<string>`coalesce(sum(${requestLogs.settlementPriceUsd}), 0)::numeric(12, 4)::text`
       })
@@ -76,6 +80,7 @@ export class LogsRepository {
       .where(eq(requestLogs.userId, userId));
 
     const inputTokens = summary?.inputTokens ?? 0;
+    const cachedInputTokens = summary?.cachedInputTokens ?? 0;
     const outputTokens = summary?.outputTokens ?? 0;
 
     return {
@@ -84,6 +89,7 @@ export class LogsRepository {
       reviewRequiredRequests: summary?.reviewRequiredRequests ?? 0,
       totalTokens: inputTokens + outputTokens,
       inputTokens,
+      cachedInputTokens,
       outputTokens,
       settlementPriceUsd: summary?.settlementPriceUsd ?? '0.0000'
     };
@@ -104,6 +110,7 @@ export class LogsRepository {
           id: channelRoutes.id,
           upstreamModelId: channelRoutes.upstreamModelId,
           inputPricePer1m: channelRoutes.inputPricePer1m,
+          cachedInputPricePer1m: channelRoutes.cachedInputPricePer1m,
           outputPricePer1m: channelRoutes.outputPricePer1m,
           currency: channelRoutes.currency,
           priority: channelRoutes.priority,
@@ -141,6 +148,7 @@ export class LogsRepository {
           id: channelRoutes.id,
           upstreamModelId: channelRoutes.upstreamModelId,
           inputPricePer1m: channelRoutes.inputPricePer1m,
+          cachedInputPricePer1m: channelRoutes.cachedInputPricePer1m,
           outputPricePer1m: channelRoutes.outputPricePer1m,
           currency: channelRoutes.currency,
           priority: channelRoutes.priority,

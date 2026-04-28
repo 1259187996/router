@@ -43,6 +43,13 @@
       "when": 1777444800000,
       "tag": "0005_smart_channel_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777448400000,
+      "tag": "0006_cached_input_accounting",
+      "breakpoints": true
     }
   ]
 }

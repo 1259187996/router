@@ -14,6 +14,7 @@ const emptyOverview: OverviewResponse = {
   reviewRequiredRequests: 0,
   totalTokens: 0,
   inputTokens: 0,
+  cachedInputTokens: 0,
   outputTokens: 0,
   settlementPriceUsd: "0.0000",
 };
@@ -39,7 +40,7 @@ export function IndexRouteComponent({ api = apiClient }: { api?: IndexRouteApi }
     {
       label: "总 token",
       value: formatInteger(overview.totalTokens),
-      detail: `输入 ${formatInteger(overview.inputTokens)} / 输出 ${formatInteger(overview.outputTokens)}`,
+      detail: `输入 ${formatInteger(overview.inputTokens)} / 缓存 ${formatInteger(overview.cachedInputTokens)} / 输出 ${formatInteger(overview.outputTokens)}`,
       icon: BarChart3,
     },
     {
@@ -50,8 +51,8 @@ export function IndexRouteComponent({ api = apiClient }: { api?: IndexRouteApi }
     },
     {
       label: "输入 / 输出",
-      value: `${formatInteger(overview.inputTokens)} / ${formatInteger(overview.outputTokens)}`,
-      detail: "用于判断上下文和响应成本结构",
+      value: `${formatInteger(overview.inputTokens)} / ${formatInteger(overview.cachedInputTokens)} / ${formatInteger(overview.outputTokens)}`,
+      detail: "总输入 / 缓存输入 / 输出",
       icon: ScrollText,
     },
     {

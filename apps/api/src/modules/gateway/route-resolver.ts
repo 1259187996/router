@@ -15,6 +15,7 @@ export async function resolveRoutesForAlias(
       apiKeyEncrypted: channels.apiKeyEncrypted,
       upstreamModelId: channelRoutes.upstreamModelId,
       inputPricePer1m: channelRoutes.inputPricePer1m,
+      cachedInputPricePer1m: channelRoutes.cachedInputPricePer1m,
       outputPricePer1m: channelRoutes.outputPricePer1m,
       currency: channelRoutes.currency,
       priority: channelRoutes.priority

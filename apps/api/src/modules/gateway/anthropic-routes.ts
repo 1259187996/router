@@ -116,6 +116,7 @@ function getAnthropicUsage(body: unknown) {
     return {
       rawUsageJson: null,
       inputTokens: null,
+      cachedInputTokens: null,
       outputTokens: null,
       isUsageSettleable: false
     };
@@ -123,14 +124,24 @@ function getAnthropicUsage(body: unknown) {
 
   const usageRecord = usage as {
     input_tokens?: unknown;
+    cache_creation_input_tokens?: unknown;
+    cache_read_input_tokens?: unknown;
     output_tokens?: unknown;
   };
   const inputTokens = typeof usageRecord.input_tokens === 'number' ? usageRecord.input_tokens : null;
+  const cacheCreationInputTokens =
+    typeof usageRecord.cache_creation_input_tokens === 'number'
+      ? usageRecord.cache_creation_input_tokens
+      : 0;
+  const cachedInputTokens =
+    typeof usageRecord.cache_read_input_tokens === 'number' ? usageRecord.cache_read_input_tokens : 0;
   const outputTokens = typeof usageRecord.output_tokens === 'number' ? usageRecord.output_tokens : null;
 
   return {
     rawUsageJson: usage,
-    inputTokens,
+    inputTokens:
+      inputTokens === null ? null : inputTokens + cacheCreationInputTokens + cachedInputTokens,
+    cachedInputTokens,
     outputTokens,
     isUsageSettleable: inputTokens !== null && outputTokens !== null
   };
@@ -391,8 +402,10 @@ async function proxyAnthropicJsonRequest(
           rawUsageJson: usageMetrics.rawUsageJson,
           rawUpstreamPriceUsd: null,
           inputTokens: usageMetrics.inputTokens,
+          cachedInputTokens: usageMetrics.cachedInputTokens,
           outputTokens: usageMetrics.outputTokens,
           inputPricePer1m: route.inputPricePer1m,
+          cachedInputPricePer1m: route.cachedInputPricePer1m,
           outputPricePer1m: route.outputPricePer1m,
           currency: route.currency
         });
@@ -530,8 +543,10 @@ async function proxyAnthropicStreamingRequest(
             rawUsageJson: usageMetrics.rawUsageJson,
             rawUpstreamPriceUsd: null,
             inputTokens: usageMetrics.inputTokens,
+            cachedInputTokens: usageMetrics.cachedInputTokens,
             outputTokens: usageMetrics.outputTokens,
             inputPricePer1m: route.inputPricePer1m,
+            cachedInputPricePer1m: route.cachedInputPricePer1m,
             outputPricePer1m: route.outputPricePer1m,
             currency: route.currency
           });
@@ -545,8 +560,25 @@ async function proxyAnthropicStreamingRequest(
         const decoder = new TextDecoder();
         const summary = createAnthropicStreamSummary();
         let rawUsageJson: unknown = null;
+        let baseInputTokens: number | null = null;
+        let cacheCreationInputTokens = 0;
+        let cachedInputTokens = 0;
         let inputTokens: number | null = null;
         let outputTokens: number | null = null;
+        const refreshUsageMetrics = () => {
+          inputTokens =
+            baseInputTokens === null
+              ? null
+              : baseInputTokens + cacheCreationInputTokens + cachedInputTokens;
+          rawUsageJson = {
+            ...(baseInputTokens === null ? {} : { input_tokens: baseInputTokens }),
+            ...(cacheCreationInputTokens > 0
+              ? { cache_creation_input_tokens: cacheCreationInputTokens }
+              : {}),
+            ...(cachedInputTokens > 0 ? { cache_read_input_tokens: cachedInputTokens } : {}),
+            ...(outputTokens === null ? {} : { output_tokens: outputTokens })
+          };
+        };
         const parser = createSseFrameParser((frame) => {
           if (frame.data === '[DONE]') {
             summary.sawMessageStop = true;
@@ -566,16 +598,25 @@ async function proxyAnthropicStreamingRequest(
           const usage = extractStreamUsageEvent(parsedEvent);
 
           if (usage) {
-            rawUsageJson = usage;
             summary.usageReported = true;
 
             if (typeof usage.input_tokens === 'number') {
-              inputTokens = usage.input_tokens;
+              baseInputTokens = usage.input_tokens;
+            }
+
+            if (typeof usage.cache_creation_input_tokens === 'number') {
+              cacheCreationInputTokens = usage.cache_creation_input_tokens;
+            }
+
+            if (typeof usage.cache_read_input_tokens === 'number') {
+              cachedInputTokens = usage.cache_read_input_tokens;
             }
 
             if (typeof usage.output_tokens === 'number') {
               outputTokens = usage.output_tokens;
             }
+
+            refreshUsageMetrics();
           }
         });
 
@@ -631,8 +672,10 @@ async function proxyAnthropicStreamingRequest(
             rawUsageJson,
             rawUpstreamPriceUsd: null,
             inputTokens,
+            cachedInputTokens,
             outputTokens,
             inputPricePer1m: route.inputPricePer1m,
+            cachedInputPricePer1m: route.cachedInputPricePer1m,
             outputPricePer1m: route.outputPricePer1m,
             currency: route.currency
           });
@@ -666,6 +709,7 @@ async function proxyAnthropicStreamingRequest(
             eventSummaryJson: summary,
             rawUsageJson,
             inputTokens,
+            cachedInputTokens,
             outputTokens
           });
           logFinalized = true;

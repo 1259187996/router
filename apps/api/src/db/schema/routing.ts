@@ -53,6 +53,12 @@ export const channelModels = pgTable(
       .references(() => channels.id, { onDelete: 'cascade' }),
     upstreamModelId: text('upstream_model_id').notNull(),
     inputPricePer1m: numeric('input_price_per_1m', { precision: 12, scale: 4 }).notNull(),
+    cachedInputPricePer1m: numeric('cached_input_price_per_1m', {
+      precision: 12,
+      scale: 4
+    })
+      .default('0')
+      .notNull(),
     outputPricePer1m: numeric('output_price_per_1m', { precision: 12, scale: 4 }).notNull(),
     currency: text('currency').notNull(),
     status: resourceStatusEnum('status').notNull(),
@@ -106,6 +112,12 @@ export const channelRoutes = pgTable(
     }),
     upstreamModelId: text('upstream_model_id'),
     inputPricePer1m: numeric('input_price_per_1m', { precision: 12, scale: 4 }).notNull(),
+    cachedInputPricePer1m: numeric('cached_input_price_per_1m', {
+      precision: 12,
+      scale: 4
+    })
+      .default('0')
+      .notNull(),
     outputPricePer1m: numeric('output_price_per_1m', { precision: 12, scale: 4 }).notNull(),
     currency: text('currency').notNull(),
     priority: integer('priority').notNull(),

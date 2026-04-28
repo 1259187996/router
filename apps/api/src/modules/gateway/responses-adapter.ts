@@ -79,18 +79,32 @@ export function getResponsesUsageMetrics(body: unknown) {
 
   const usageRecord = usage as {
     input_tokens?: unknown;
+    input_tokens_details?: unknown;
     output_tokens?: unknown;
   };
 
   return {
     rawUsageJson: usage,
     inputTokens: typeof usageRecord.input_tokens === 'number' ? usageRecord.input_tokens : null,
+    cachedInputTokens: readCachedTokenCount(usageRecord.input_tokens_details),
     outputTokens: typeof usageRecord.output_tokens === 'number' ? usageRecord.output_tokens : null
   };
 }
 
 export function getResponsesCompletedUsage(eventData: unknown) {
   return getResponsesUsageMetrics(eventData);
+}
+
+function readCachedTokenCount(details: unknown) {
+  if (!details || typeof details !== 'object' || !('cached_tokens' in details)) {
+    return 0;
+  }
+
+  const cachedTokens = (details as { cached_tokens?: unknown }).cached_tokens;
+
+  return typeof cachedTokens === 'number' && Number.isFinite(cachedTokens)
+    ? Math.max(0, Math.trunc(cachedTokens))
+    : 0;
 }
 
 export function buildResponsesStreamErrorEvent(message: string) {

@@ -43,6 +43,7 @@ function toLogicalModelResponse(logicalModel: {
       channelModelId?: string | null;
       upstreamModelId: string | null;
     inputPricePer1m: string;
+    cachedInputPricePer1m: string;
     outputPricePer1m: string;
     currency: string;
     priority: number;

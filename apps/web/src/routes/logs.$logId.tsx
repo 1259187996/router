@@ -26,17 +26,32 @@ type LogDetailRouteApi = Pick<AppApi, "getLogDetail">;
 
 function buildPriceBreakdown(
   inputTokens: number | null,
+  cachedInputTokens: number | null,
   outputTokens: number | null,
   finalRoute: LogDetailRouteRecord | null,
 ) {
   if (!finalRoute || inputTokens == null || outputTokens == null) return [];
   const inputPrice = Number.parseFloat(finalRoute.inputPricePer1m);
+  const cachedInputPrice = Number.parseFloat(finalRoute.cachedInputPricePer1m);
   const outputPrice = Number.parseFloat(finalRoute.outputPricePer1m);
-  if (Number.isNaN(inputPrice) || Number.isNaN(outputPrice)) return [];
-  return [
-    { label: "输入费用", expression: `${inputTokens} x ${finalRoute.inputPricePer1m} / 1M`, amount: formatUsd(((inputTokens * inputPrice) / 1_000_000).toFixed(4)) },
-    { label: "输出费用", expression: `${outputTokens} x ${finalRoute.outputPricePer1m} / 1M`, amount: formatUsd(((outputTokens * outputPrice) / 1_000_000).toFixed(4)) },
+  if (Number.isNaN(inputPrice) || Number.isNaN(cachedInputPrice) || Number.isNaN(outputPrice)) return [];
+  const normalizedCachedInputTokens = Math.min(Math.max(cachedInputTokens ?? 0, 0), inputTokens);
+  const billableInputTokens = Math.max(inputTokens - normalizedCachedInputTokens, 0);
+  const breakdown = [
+    { label: "输入费用", expression: `${billableInputTokens} x ${finalRoute.inputPricePer1m} / 1M`, amount: formatUsd(((billableInputTokens * inputPrice) / 1_000_000).toFixed(4)) },
   ];
+
+  if (normalizedCachedInputTokens > 0) {
+    breakdown.push({
+      label: "缓存输入费用",
+      expression: `${normalizedCachedInputTokens} x ${finalRoute.cachedInputPricePer1m} / 1M`,
+      amount: formatUsd(((normalizedCachedInputTokens * cachedInputPrice) / 1_000_000).toFixed(4)),
+    });
+  }
+
+  breakdown.push({ label: "输出费用", expression: `${outputTokens} x ${finalRoute.outputPricePer1m} / 1M`, amount: formatUsd(((outputTokens * outputPrice) / 1_000_000).toFixed(4)) });
+
+  return breakdown;
 }
 
 function statusVariant(status: string): "success" | "destructive" | "secondary" | "warning" {
@@ -65,7 +80,7 @@ export function LogDetailRouteComponent({
   const finalChannel = detail?.finalChannel;
   const finalRoute = detail?.finalRoute ?? null;
   const attempts = detail?.attempts ?? [];
-  const priceBreakdown = buildPriceBreakdown(log?.inputTokens ?? null, log?.outputTokens ?? null, finalRoute);
+  const priceBreakdown = buildPriceBreakdown(log?.inputTokens ?? null, log?.cachedInputTokens ?? null, log?.outputTokens ?? null, finalRoute);
 
   return (
     <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -94,7 +109,7 @@ export function LogDetailRouteComponent({
               { label: "本地结算", value: formatUsd(log?.settlementPriceUsd) },
               { label: "上游原价", value: formatUsd(log?.rawUpstreamPriceUsd) },
               { label: "耗时", value: formatDuration(log?.durationMs) },
-              { label: "Token", value: formatTokenSummary(log?.inputTokens, log?.outputTokens) },
+              { label: "Token", value: formatTokenSummary(log?.inputTokens, log?.outputTokens, log?.cachedInputTokens) },
             ].map((m) => (
               <div key={m.label} className="rounded-lg bg-muted/50 p-4">
                 <p className="font-mono text-[10px] uppercase text-muted-foreground">{m.label}</p>
@@ -135,7 +150,7 @@ export function LogDetailRouteComponent({
               <div className="mt-3 space-y-2 text-sm text-muted-foreground">
                 <div className="flex justify-between"><span>渠道</span><span className="font-medium text-foreground">{finalChannel?.name ?? "--"}</span></div>
                 <div className="flex justify-between"><span>上游模型</span><span className="font-medium text-foreground">{finalRoute?.upstreamModelId ?? "--"}</span></div>
-                <div className="flex justify-between"><span>价格表</span><span className="font-mono font-medium text-foreground">{finalRoute ? `${finalRoute.inputPricePer1m} / ${finalRoute.outputPricePer1m}` : "--"}</span></div>
+                <div className="flex justify-between"><span>价格表</span><span className="font-mono font-medium text-foreground">{finalRoute ? `${finalRoute.inputPricePer1m} / ${finalRoute.cachedInputPricePer1m} / ${finalRoute.outputPricePer1m}` : "--"}</span></div>
               </div>
             </div>
           </div>

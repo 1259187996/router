@@ -17,6 +17,7 @@ describe("IndexRouteComponent", () => {
         reviewRequiredRequests: 1,
         totalTokens: 750,
         inputTokens: 600,
+        cachedInputTokens: 250,
         outputTokens: 150,
         settlementPriceUsd: "6.7500",
       }),
@@ -30,7 +31,8 @@ describe("IndexRouteComponent", () => {
     expect(await screen.findByRole("heading", { name: "Token 使用总览" })).toBeInTheDocument();
     expect((await screen.findAllByText("750")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("$6.7500").length).toBeGreaterThan(0);
-    expect(screen.getByText("600 / 150")).toBeInTheDocument();
+    expect(screen.getByText("600 / 250 / 150")).toBeInTheDocument();
+    expect(screen.getAllByText(/缓存 250/).length).toBeGreaterThan(0);
     expect(screen.getAllByText("3 / 1").length).toBeGreaterThan(0);
     expect(api.getOverview).toHaveBeenCalledTimes(1);
     expect(screen.getByText("快捷操作")).toBeInTheDocument();

@@ -54,6 +54,7 @@ export const requestLogs = pgTable(
     rawUpstreamPriceUsd: numeric('raw_upstream_price_usd', { precision: 12, scale: 4 }),
     settlementPriceUsd: numeric('settlement_price_usd', { precision: 12, scale: 4 }),
     inputTokens: integer('input_tokens'),
+    cachedInputTokens: integer('cached_input_tokens'),
     outputTokens: integer('output_tokens'),
     durationMs: integer('duration_ms'),
     errorSummary: text('error_summary'),
@@ -107,6 +108,12 @@ export const priceSnapshots = pgTable(
       .references(() => requestLogs.id, { onDelete: 'cascade' }),
     pricingSource: text('pricing_source').notNull(),
     inputPricePer1m: numeric('input_price_per_1m', { precision: 12, scale: 4 }).notNull(),
+    cachedInputPricePer1m: numeric('cached_input_price_per_1m', {
+      precision: 12,
+      scale: 4
+    })
+      .default('0')
+      .notNull(),
     outputPricePer1m: numeric('output_price_per_1m', { precision: 12, scale: 4 }).notNull(),
     currency: text('currency').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()

@@ -7,6 +7,7 @@ export const gatewayRouteSchema = z.object({
   apiKeyEncrypted: z.string().min(1),
   upstreamModelId: z.string().nullable(),
   inputPricePer1m: z.string(),
+  cachedInputPricePer1m: z.string(),
   outputPricePer1m: z.string(),
   currency: z.string().min(1),
   priority: z.number().int().nonnegative()

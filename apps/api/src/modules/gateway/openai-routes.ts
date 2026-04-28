@@ -67,11 +67,13 @@ function getUsageMetrics(body: unknown) {
   const usageRecord = usage as {
     prompt_tokens?: unknown;
     completion_tokens?: unknown;
+    prompt_tokens_details?: unknown;
   };
 
   return {
     rawUsageJson: usage,
     inputTokens: typeof usageRecord.prompt_tokens === 'number' ? usageRecord.prompt_tokens : null,
+    cachedInputTokens: readCachedTokenCount(usageRecord.prompt_tokens_details),
     outputTokens: typeof usageRecord.completion_tokens === 'number' ? usageRecord.completion_tokens : null
   };
 }
@@ -87,12 +89,14 @@ function summarizeUnexpectedError(error: unknown) {
 function normalizeUsageMetrics(input: {
   rawUsageJson: unknown;
   inputTokens: number | null;
+  cachedInputTokens?: number | null;
   outputTokens: number | null;
 }) {
   if (input.rawUsageJson === null || input.rawUsageJson === undefined) {
     return {
       rawUsageJson: null,
       inputTokens: null,
+      cachedInputTokens: null,
       outputTokens: null
     };
   }
@@ -100,6 +104,7 @@ function normalizeUsageMetrics(input: {
   return {
     rawUsageJson: input.rawUsageJson,
     inputTokens: input.inputTokens,
+    cachedInputTokens: input.cachedInputTokens ?? 0,
     outputTokens: input.outputTokens
   };
 }
@@ -109,6 +114,7 @@ function classifyUsageForSettlement(
   usageMetrics: {
     rawUsageJson: unknown;
     inputTokens: number | null;
+    cachedInputTokens?: number | null;
     outputTokens: number | null;
   }
 ) {
@@ -118,6 +124,7 @@ function classifyUsageForSettlement(
     return {
       rawUsageJson: null,
       inputTokens: null,
+      cachedInputTokens: null,
       outputTokens: null,
       isUsageSettleable: false
     };
@@ -128,6 +135,7 @@ function classifyUsageForSettlement(
       return {
         rawUsageJson: normalized.rawUsageJson,
         inputTokens: null,
+        cachedInputTokens: null,
         outputTokens: null,
         isUsageSettleable: false
       };
@@ -136,6 +144,7 @@ function classifyUsageForSettlement(
     return {
       rawUsageJson: normalized.rawUsageJson,
       inputTokens: normalized.inputTokens,
+      cachedInputTokens: normalized.cachedInputTokens ?? 0,
       outputTokens: normalized.outputTokens ?? 0,
       isUsageSettleable: true
     };
@@ -145,6 +154,7 @@ function classifyUsageForSettlement(
     return {
       rawUsageJson: normalized.rawUsageJson,
       inputTokens: null,
+      cachedInputTokens: null,
       outputTokens: null,
       isUsageSettleable: false
     };
@@ -153,6 +163,7 @@ function classifyUsageForSettlement(
   return {
     rawUsageJson: normalized.rawUsageJson,
     inputTokens: normalized.inputTokens,
+    cachedInputTokens: normalized.cachedInputTokens ?? 0,
     outputTokens: normalized.outputTokens,
     isUsageSettleable: true
   };
@@ -178,6 +189,18 @@ function toNumericPrice(value: unknown) {
   }
 
   return null;
+}
+
+function readCachedTokenCount(details: unknown) {
+  if (!details || typeof details !== 'object' || !('cached_tokens' in details)) {
+    return 0;
+  }
+
+  const cachedTokens = (details as { cached_tokens?: unknown }).cached_tokens;
+
+  return typeof cachedTokens === 'number' && Number.isFinite(cachedTokens)
+    ? Math.max(0, Math.trunc(cachedTokens))
+    : 0;
 }
 
 function readNestedValue(source: unknown, path: string[]) {
@@ -615,8 +638,10 @@ async function proxyJsonRequest(
           rawUsageJson: usageMetrics.rawUsageJson,
           rawUpstreamPriceUsd: extractRawUpstreamPriceUsd(result.body),
           inputTokens: usageMetrics.inputTokens,
+          cachedInputTokens: usageMetrics.cachedInputTokens,
           outputTokens: usageMetrics.outputTokens,
           inputPricePer1m: route.inputPricePer1m,
+          cachedInputPricePer1m: route.cachedInputPricePer1m,
           outputPricePer1m: route.outputPricePer1m,
           currency: route.currency
         });
@@ -780,8 +805,10 @@ async function proxyStreamingResponsesRequest(
             rawUsageJson: usageMetrics.rawUsageJson,
             rawUpstreamPriceUsd: extractRawUpstreamPriceUsd(result.body),
             inputTokens: usageMetrics.inputTokens,
+            cachedInputTokens: usageMetrics.cachedInputTokens,
             outputTokens: usageMetrics.outputTokens,
             inputPricePer1m: route.inputPricePer1m,
+            cachedInputPricePer1m: route.cachedInputPricePer1m,
             outputPricePer1m: route.outputPricePer1m,
             currency: route.currency
           });
@@ -809,6 +836,7 @@ async function proxyStreamingResponsesRequest(
         let usageMetrics = {
           rawUsageJson: null as unknown,
           inputTokens: null as number | null,
+          cachedInputTokens: null as number | null,
           outputTokens: null as number | null,
           isUsageSettleable: false
         };
@@ -921,8 +949,10 @@ async function proxyStreamingResponsesRequest(
             rawUsageJson: usageMetrics.rawUsageJson,
             rawUpstreamPriceUsd,
             inputTokens: usageMetrics.inputTokens,
+            cachedInputTokens: usageMetrics.cachedInputTokens,
             outputTokens: usageMetrics.outputTokens,
             inputPricePer1m: route.inputPricePer1m,
+            cachedInputPricePer1m: route.cachedInputPricePer1m,
             outputPricePer1m: route.outputPricePer1m,
             currency: route.currency
           });
@@ -994,6 +1024,7 @@ async function proxyStreamingResponsesRequest(
             eventSummaryJson: eventSummary,
             rawUsageJson: usageMetrics.rawUsageJson,
             inputTokens: usageMetrics.inputTokens,
+            cachedInputTokens: usageMetrics.cachedInputTokens,
             outputTokens: usageMetrics.outputTokens
           });
           if (canWriteToClient()) {

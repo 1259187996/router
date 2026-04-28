@@ -77,8 +77,10 @@ export class RequestLogService {
     rawUsageJson?: unknown;
     rawUpstreamPriceUsd?: number | null;
     inputTokens?: number | null;
+    cachedInputTokens?: number | null;
     outputTokens?: number | null;
     inputPricePer1m: string;
+    cachedInputPricePer1m?: string;
     outputPricePer1m: string;
     currency: string;
   }) {
@@ -92,6 +94,7 @@ export class RequestLogService {
         requestLogId: input.requestLogId,
         pricingSource: 'local_table',
         inputPricePer1m: input.inputPricePer1m,
+        cachedInputPricePer1m: input.cachedInputPricePer1m ?? '0.0000',
         outputPricePer1m: input.outputPricePer1m,
         currency: input.currency
       });
@@ -113,6 +116,7 @@ export class RequestLogService {
                 : formatUsdAmount(input.rawUpstreamPriceUsd, 4),
             settlementPriceUsd: null,
             inputTokens: null,
+            cachedInputTokens: null,
             outputTokens: null,
             finishedAt,
             durationMs
@@ -124,8 +128,10 @@ export class RequestLogService {
 
       const settlementPriceUsd = computeSettlementPriceUsd({
         inputTokens: input.inputTokens ?? 0,
+        cachedInputTokens: input.cachedInputTokens ?? 0,
         outputTokens: input.outputTokens ?? 0,
         inputPricePer1m: input.inputPricePer1m,
+        cachedInputPricePer1m: input.cachedInputPricePer1m ?? '0.0000',
         outputPricePer1m: input.outputPricePer1m
       });
 
@@ -145,6 +151,7 @@ export class RequestLogService {
               : formatUsdAmount(input.rawUpstreamPriceUsd, 4),
           settlementPriceUsd: formatUsdAmount(settlementPriceUsd, 4),
           inputTokens: input.inputTokens ?? 0,
+          cachedInputTokens: input.cachedInputTokens ?? 0,
           outputTokens: input.outputTokens ?? 0,
           finishedAt,
           durationMs
@@ -222,6 +229,7 @@ export class RequestLogService {
     eventSummaryJson?: unknown;
     rawUsageJson?: unknown;
     inputTokens?: number | null;
+    cachedInputTokens?: number | null;
     outputTokens?: number | null;
   }) {
     const finishedAt = new Date();
@@ -237,6 +245,7 @@ export class RequestLogService {
         eventSummaryJson: input.eventSummaryJson ?? null,
         rawUsageJson: input.rawUsageJson ?? null,
         inputTokens: input.inputTokens ?? null,
+        cachedInputTokens: input.cachedInputTokens ?? null,
         outputTokens: input.outputTokens ?? null,
         finishedAt,
         durationMs: this.calculateDurationMs(input.startedAt, finishedAt)

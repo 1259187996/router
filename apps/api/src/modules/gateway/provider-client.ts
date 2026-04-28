@@ -434,6 +434,7 @@ function anthropicMessageToChatCompletion(body: unknown) {
   const usage = getAnthropicUsage(record);
   const completionTokens = usage.outputTokens ?? 0;
   const promptTokens = usage.inputTokens ?? 0;
+  const cachedTokens = usage.cachedInputTokens ?? 0;
 
   return {
     id: typeof record.id === 'string' ? record.id : `chatcmpl_${Date.now()}`,
@@ -453,7 +454,10 @@ function anthropicMessageToChatCompletion(body: unknown) {
     usage: {
       prompt_tokens: promptTokens,
       completion_tokens: completionTokens,
-      total_tokens: promptTokens + completionTokens
+      total_tokens: promptTokens + completionTokens,
+      prompt_tokens_details: {
+        cached_tokens: cachedTokens
+      }
     }
   };
 }
@@ -462,6 +466,7 @@ function anthropicMessageToResponse(body: unknown) {
   const record = requireAnthropicMessageBody(body);
   const usage = getAnthropicUsage(record);
   const inputTokens = usage.inputTokens ?? 0;
+  const cachedInputTokens = usage.cachedInputTokens ?? 0;
   const outputTokens = usage.outputTokens ?? 0;
   const id = typeof record.id === 'string' ? record.id : `resp_${Date.now()}`;
 
@@ -486,7 +491,10 @@ function anthropicMessageToResponse(body: unknown) {
     usage: {
       input_tokens: inputTokens,
       output_tokens: outputTokens,
-      total_tokens: inputTokens + outputTokens
+      total_tokens: inputTokens + outputTokens,
+      input_tokens_details: {
+        cached_tokens: cachedInputTokens
+      }
     }
   };
 }
@@ -503,9 +511,18 @@ function getAnthropicUsage(record: Record<string, unknown>) {
   const usage = record.usage && typeof record.usage === 'object'
     ? (record.usage as Record<string, unknown>)
     : {};
+  const inputTokens = typeof usage.input_tokens === 'number' ? usage.input_tokens : null;
+  const cacheCreationInputTokens =
+    typeof usage.cache_creation_input_tokens === 'number'
+      ? usage.cache_creation_input_tokens
+      : 0;
+  const cachedInputTokens =
+    typeof usage.cache_read_input_tokens === 'number' ? usage.cache_read_input_tokens : 0;
 
   return {
-    inputTokens: typeof usage.input_tokens === 'number' ? usage.input_tokens : null,
+    inputTokens:
+      inputTokens === null ? null : inputTokens + cacheCreationInputTokens + cachedInputTokens,
+    cachedInputTokens,
     outputTokens: typeof usage.output_tokens === 'number' ? usage.output_tokens : null
   };
 }

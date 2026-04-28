@@ -145,6 +145,7 @@ describe('ChannelsRouteComponent', () => {
             channelId: 'channel-1',
             upstreamModelId: 'gpt-4o',
             inputPricePer1m: '5.0000',
+            cachedInputPricePer1m: '0.5000',
             outputPricePer1m: '15.0000',
             currency: 'USD',
             priority: 10,
@@ -160,6 +161,7 @@ describe('ChannelsRouteComponent', () => {
         channelId: 'channel-1',
         upstreamModelId: 'gpt-4o',
         inputPricePer1m: '5.0000',
+        cachedInputPricePer1m: '0.5000',
         outputPricePer1m: '15.0000',
         currency: 'USD',
         status: 'active' as const,
@@ -171,6 +173,7 @@ describe('ChannelsRouteComponent', () => {
         channelId: 'channel-1',
         upstreamModelId: 'gpt-4o-mini',
         inputPricePer1m: '1.0000',
+        cachedInputPricePer1m: '0.1000',
         outputPricePer1m: '2.0000',
         currency: 'USD',
         status: 'active' as const,
@@ -219,6 +222,7 @@ describe('ChannelsRouteComponent', () => {
           channelId: 'channel-1',
           upstreamModelId: 'gpt-4o-nano',
           inputPricePer1m: '1.0000',
+          cachedInputPricePer1m: '0.1000',
           outputPricePer1m: '2.0000',
           currency: 'USD',
           status: 'active' as const,
@@ -259,6 +263,8 @@ describe('ChannelsRouteComponent', () => {
               channelModelId: route.channelModelId,
               upstreamModelId: route.upstreamModelId ?? selectedModel?.upstreamModelId ?? null,
               inputPricePer1m: route.inputPricePer1m ?? selectedModel?.inputPricePer1m ?? '0.0000',
+              cachedInputPricePer1m:
+                route.cachedInputPricePer1m ?? selectedModel?.cachedInputPricePer1m ?? '0.0000',
               outputPricePer1m: route.outputPricePer1m ?? selectedModel?.outputPricePer1m ?? '0.0000',
               currency: route.currency ?? selectedModel?.currency ?? 'USD',
               priority: route.priority,
@@ -340,6 +346,10 @@ describe('ChannelsRouteComponent', () => {
       '1.0000',
     );
     setControlValue(
+      getInputElement<HTMLInputElement>(createModelDialog, '#channel-model-cached-input-price'),
+      '0.1000',
+    );
+    setControlValue(
       getInputElement<HTMLInputElement>(createModelDialog, '#channel-model-output-price'),
       '2.0000',
     );
@@ -350,6 +360,7 @@ describe('ChannelsRouteComponent', () => {
       expect(api.createChannelModel).toHaveBeenCalledWith('channel-1', {
         upstreamModelId: 'gpt-4o-mini',
         inputPricePer1m: '1.0000',
+        cachedInputPricePer1m: '0.1000',
         outputPricePer1m: '2.0000',
         currency: 'USD',
       });
@@ -487,6 +498,7 @@ describe('ChannelsRouteComponent', () => {
         channelId: 'channel-1',
         upstreamModelId: 'gpt-4o',
         inputPricePer1m: '5.0000',
+        cachedInputPricePer1m: '0.5000',
         outputPricePer1m: '15.0000',
         currency: 'USD',
         status: 'active',
@@ -498,6 +510,7 @@ describe('ChannelsRouteComponent', () => {
         channelId: 'channel-1',
         upstreamModelId: 'gpt-4o-mini',
         inputPricePer1m: '0.5000',
+        cachedInputPricePer1m: '0.0500',
         outputPricePer1m: '1.5000',
         currency: 'USD',
         status: 'active',
@@ -520,6 +533,7 @@ describe('ChannelsRouteComponent', () => {
             channelModelId: 'channel-model-1',
             upstreamModelId: 'gpt-4o',
             inputPricePer1m: '5.0000',
+            cachedInputPricePer1m: '0.5000',
             outputPricePer1m: '15.0000',
             currency: 'USD',
             priority: 10,
@@ -578,6 +592,7 @@ describe('ChannelsRouteComponent', () => {
                   channelModelId: nextRoute.channelModelId,
                   upstreamModelId: selectedModel?.upstreamModelId ?? null,
                   inputPricePer1m: selectedModel?.inputPricePer1m ?? '0.0000',
+                  cachedInputPricePer1m: selectedModel?.cachedInputPricePer1m ?? '0.0000',
                   outputPricePer1m: selectedModel?.outputPricePer1m ?? '0.0000',
                   currency: selectedModel?.currency ?? 'USD',
                   priority: nextRoute.priority,
@@ -622,6 +637,7 @@ describe('ChannelsRouteComponent', () => {
     const editModelDialog = await screen.findByRole('dialog', { name: '编辑渠道模型' });
     setControlValue(getInputElement<HTMLInputElement>(editModelDialog, '#edit-channel-model-upstream-model-id'), 'gpt-4.1');
     setControlValue(getInputElement<HTMLInputElement>(editModelDialog, '#edit-channel-model-input-price'), '2.0000');
+    setControlValue(getInputElement<HTMLInputElement>(editModelDialog, '#edit-channel-model-cached-input-price'), '0.2000');
     setControlValue(getInputElement<HTMLInputElement>(editModelDialog, '#edit-channel-model-output-price'), '8.0000');
     setControlValue(getInputElement<HTMLInputElement>(editModelDialog, '#edit-channel-model-currency'), 'USD');
     await userEvent.click(within(editModelDialog).getByRole('button', { name: '保存模型修改' }));
@@ -630,6 +646,7 @@ describe('ChannelsRouteComponent', () => {
       expect(api.updateChannelModel).toHaveBeenCalledWith('channel-1', 'channel-model-1', {
         upstreamModelId: 'gpt-4.1',
         inputPricePer1m: '2.0000',
+        cachedInputPricePer1m: '0.2000',
         outputPricePer1m: '8.0000',
         currency: 'USD',
       });

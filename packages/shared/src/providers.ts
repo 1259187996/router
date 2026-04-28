@@ -18,6 +18,7 @@ export type ChannelProviderConfig = {
   defaultChannelModels: Array<{
     upstreamModelId: string;
     inputPricePer1m: string;
+    cachedInputPricePer1m: string;
     outputPricePer1m: string;
     currency: string;
   }>;
@@ -42,6 +43,7 @@ export const channelProviderConfigs = {
       {
         upstreamModelId: 'gpt-5.5',
         inputPricePer1m: '0.0000',
+        cachedInputPricePer1m: '0.0000',
         outputPricePer1m: '0.0000',
         currency: 'USD'
       }
@@ -58,6 +60,7 @@ export const channelProviderConfigs = {
       {
         upstreamModelId: 'claude-sonnet-4-5-20250929',
         inputPricePer1m: '0.0000',
+        cachedInputPricePer1m: '0.0000',
         outputPricePer1m: '0.0000',
         currency: 'USD'
       }
@@ -74,6 +77,7 @@ export const channelProviderConfigs = {
       {
         upstreamModelId: 'deepseek-chat',
         inputPricePer1m: '0.0000',
+        cachedInputPricePer1m: '0.0000',
         outputPricePer1m: '0.0000',
         currency: 'USD'
       }
